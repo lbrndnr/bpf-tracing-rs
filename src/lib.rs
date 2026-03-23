@@ -1,11 +1,12 @@
-use std::fs::File;
-use std::path::Path;
-use std::str::FromStr;
-use std::sync::mpsc::{self, Receiver};
-use std::time::Duration;
-use tokio::{
-    io::{AsyncReadExt, AsyncSeekExt, SeekFrom},
-    time::sleep,
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use std::{
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    path::Path,
+    str::FromStr,
+    sync::mpsc::{self, Receiver},
+    thread::{self, sleep},
+    time::Duration,
 };
 use tracing;
 
@@ -26,7 +27,7 @@ impl FromStr for LogEvent {
     type Err = String;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        unimplemented!()
+        Ok(LogEvent::Trace(s.to_string()))
     }
 }
 
@@ -34,59 +35,44 @@ pub fn try_init() -> Result<()> {
     Ok(())
 }
 
-fn observe<P: AsRef<Path>>(path: P) -> Result<Receiver<Result<String>>> {
+fn observe<P: AsRef<Path>>(path: P, interval: Duration) -> Result<Receiver<Result<String>>> {
     let path = path.as_ref().to_path_buf();
     let (tx, rx) = mpsc::channel::<Result<String>>();
-    let file = File::open(&path)?;
+    let mut file = File::open(&path)?;
 
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .thread_stack_size(8 * 1024 * 1024)
-        .worker_threads(1)
-        .max_blocking_threads(1)
-        .build()?;
+    thread::spawn(move || {
+        let (ntx, nrx) = mpsc::channel();
+        let config = Config::default().with_poll_interval(interval);
 
-    rt.spawn(async move {
+        let mut watcher: RecommendedWatcher = Watcher::new(ntx, config).unwrap();
+        watcher.watch(&path, RecursiveMode::NonRecursive).unwrap();
+
         let mut offset = 0u64;
-        let mut file = tokio::fs::File::from_std(file);
-
         loop {
-            let meta = match tokio::fs::metadata(&path).await {
-                Ok(meta) => meta,
+            match nrx.recv() {
+                Ok(_) => {
+                    if let Err(e) = file.seek(SeekFrom::Start(offset)) {
+                        tx.send(Err(e));
+                        break;
+                    }
+
+                    let mut buf = Vec::new();
+                    if let Err(e) = file.read_to_end(&mut buf) {
+                        tx.send(Err(e)).ok();
+                        break;
+                    }
+
+                    let changes = String::from_utf8_lossy(&buf).to_string();
+                    for line in changes.lines() {
+                        tx.send(Ok(line.to_string())).ok();
+                    }
+                    offset += buf.len() as u64;
+                }
                 Err(e) => {
-                    tx.send(Err(e)).ok();
+                    // tx.send(std::io::Error::from(e));
                     break;
                 }
             };
-
-            let len = meta.len();
-
-            // File got truncated/rotated.
-            if len < offset {
-                offset = 0;
-            }
-
-            // If there's new data, read only the appended part.
-            if len > offset {
-                if let Err(e) = file.seek(SeekFrom::Start(offset)).await {
-                    tx.send(Err(e)).ok();
-                    break;
-                }
-
-                let mut buf = vec![0u8; (len - offset) as usize];
-                if let Err(e) = file.read_exact(&mut buf).await {
-                    tx.send(Err(e)).ok();
-                    break;
-                }
-                offset = len;
-
-                // Print appended bytes as text (lossy for non-UTF8).
-                let text = String::from_utf8_lossy(&buf);
-                tx.send(Ok(text.into_owned())).ok();
-            }
-
-            // Poll interval (tune as needed).
-            sleep(Duration::from_millis(250)).await;
         }
     });
 
@@ -108,29 +94,33 @@ mod tests {
     use super::*;
     use std::io::Write;
 
+    const TEST_INTERVAL: Duration = Duration::from_millis(100);
+
     #[test]
     fn observe_nonexistent_file() {
         let temp_dir = tempfile::tempdir().unwrap();
         let path = temp_dir.path().join("test.log");
 
-        assert!(observe(path).is_err());
+        assert!(observe(path, TEST_INTERVAL).is_err());
     }
 
-    #[tokio::test]
-    async fn observe_file_changes() {
+    #[test]
+    fn observe_file_changes() {
         let temp_dir = tempfile::tempdir().unwrap();
         let path = temp_dir.path().join("test.log");
         let mut file = File::create(&path).unwrap();
 
-        let rx = observe(path).unwrap();
+        let rx = observe(path, TEST_INTERVAL).unwrap();
+
+        sleep(2 * TEST_INTERVAL);
 
         file.write_all(b"hello\n").unwrap();
         file.write_all(b"world\n").unwrap();
 
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        sleep(2 * TEST_INTERVAL);
 
-        assert_eq!(rx.recv().unwrap().unwrap(), "hello\n".to_string());
-        assert_eq!(rx.recv().unwrap().unwrap(), "world\n".to_string());
+        assert_eq!(rx.recv().unwrap().unwrap(), "hello".to_string());
+        assert_eq!(rx.recv().unwrap().unwrap(), "world".to_string());
     }
 
     #[test]

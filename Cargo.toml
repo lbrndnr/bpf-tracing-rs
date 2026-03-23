@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tokio = { version = "1.50.0", features = ["fs", "io-util", "rt", "sync", "time"] }
+notify = "8.2.0"
 tracing = "0.1.44"
 
 [build-dependencies]
@@ -15,4 +15,3 @@ anyhow = "1.0.102"
 libbpf-rs = "0.26.1"
 libc = "0.2.182"
 tempfile = "3.27.0"
-tokio = { version = "1.50.0", features = ["fs", "io-util", "rt", "sync", "time", "macros"] }
