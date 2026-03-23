@@ -18,6 +18,8 @@ use std::{
 include!(concat!(env!("OUT_DIR"), "/monitor.skel.rs"));
 
 fn main() -> Result<()> {
+    bpflog::try_init()?;
+
     let mut open_obj = MaybeUninit::uninit();
     let skel_builder = MonitorSkelBuilder::default();
     let open_skel = skel_builder.open(&mut open_obj)?;
