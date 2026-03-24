@@ -96,6 +96,7 @@ dependencies = [
  "libbpf-cargo",
  "libbpf-rs",
  "libc",
+ "nix",
  "tempfile",
  "tracing",
  "tracing-subscriber",

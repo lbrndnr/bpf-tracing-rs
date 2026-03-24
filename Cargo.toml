@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 libc = "0.2.182"
+nix = { version = "0.31.2", features = ["fs"] }
 tracing = "0.1.44"
 
 [build-dependencies]
