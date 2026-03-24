@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-notify = "8.2.0"
+libc = "0.2.182"
 tracing = "0.1.44"
 
 [build-dependencies]
@@ -13,5 +13,5 @@ libbpf-cargo = "0.26.1"
 [dev-dependencies]
 anyhow = "1.0.102"
 libbpf-rs = "0.26.1"
-libc = "0.2.182"
 tempfile = "3.27.0"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

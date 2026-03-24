@@ -13,19 +13,23 @@ use std::{
         fd::{AsFd, AsRawFd, IntoRawFd},
         unix::fs::OpenOptionsExt,
     },
+    thread::sleep,
+    time::Duration,
 };
 
 include!(concat!(env!("OUT_DIR"), "/monitor.skel.rs"));
 
 fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::FULL)
+        .init();
+
     bpflog::try_init()?;
 
     let mut open_obj = MaybeUninit::uninit();
     let skel_builder = MonitorSkelBuilder::default();
     let open_skel = skel_builder.open(&mut open_obj)?;
-    // if tracing::event_enabled!(Level::TRACE) {
-    //     open_skel.progs.verdict.set_log_level(1);
-    // }
 
     let skel = open_skel.load()?;
     let sock_map_fd = skel.maps.sock_map.as_fd().as_raw_fd();
@@ -56,6 +60,8 @@ fn main() -> Result<()> {
     let mut stream = std::net::TcpStream::connect(address)?;
     stream.write_all(b"Hello, World!")?;
     stream.shutdown(std::net::Shutdown::Both)?;
+
+    sleep(Duration::from_secs(1));
 
     drop(sockops);
     drop(skel);
