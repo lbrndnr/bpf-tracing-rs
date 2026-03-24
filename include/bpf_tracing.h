@@ -1,5 +1,5 @@
-#ifndef __BPFLOG_H__
-#define __BPFLOG_H__
+#ifndef __BPF_TRACING_H__
+#define __BPF_TRACING_H__
 
 #ifdef BPF_LOG_LEVEL
     #if BPF_LOG_LEVEL == 0
@@ -47,4 +47,4 @@
     #define bpf_error(...) (0)
 #endif
 
-#endif // __BPFLOG_H__
+#endif // __BPF_TRACING_H__

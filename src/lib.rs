@@ -123,7 +123,7 @@ mod tests {
         file.write_all(b"hello\n").unwrap();
         file.write_all(b"world\n").unwrap();
 
-        sleep(2 * TEST_INTERVAL);
+        sleep(TEST_INTERVAL);
 
         assert_eq!(rx.recv().unwrap(), "hello".to_string());
         assert_eq!(rx.recv().unwrap(), "world".to_string());

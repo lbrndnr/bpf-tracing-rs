@@ -25,7 +25,7 @@ fn main() -> Result<()> {
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::FULL)
         .init();
 
-    bpflog::try_init()?;
+    bpf_tracing::try_init()?;
 
     let mut open_obj = MaybeUninit::uninit();
     let skel_builder = MonitorSkelBuilder::default();
