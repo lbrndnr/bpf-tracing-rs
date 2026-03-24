@@ -1,0 +1,18 @@
+[package]
+name = "bpf_tracing"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libc = "0.2.182"
+nix = { version = "0.31.2", features = ["fs"] }
+tracing = "0.1.44"
+
+[build-dependencies]
+libbpf-cargo = "0.26.1"
+
+[dev-dependencies]
+anyhow = "1.0.102"
+libbpf-rs = "0.26.1"
+tempfile = "3.27.0"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

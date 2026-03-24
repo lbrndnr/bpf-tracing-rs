@@ -36,7 +36,7 @@ fn main() {
             OsStr::new("-D"),
             OsStr::new(format!("BPF_LOG_LEVEL={log_level}").as_str()),
             OsStr::new("-I"),
-            OsStr::new("include"),
+            OsStr::new("../include"),
         ])
         .build_and_generate(&out)
         .unwrap();
