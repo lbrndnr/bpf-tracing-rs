@@ -4,7 +4,7 @@ This is a tracing facility for eBPF that integrates neatly into the [tracing](ht
 
 ## Usage
 
-Include the [bpf-tracing.h]((https://github.com/lbrndnr/bpf-tracing-rc/blob/main/include/bpf-tracing.h) header.
+Include the [bpf-tracing.h](include/bpf-tracing.h) header.
 
 ```c
 #include "bpf-tracing.h"
@@ -23,4 +23,4 @@ int monitor_sockets(struct bpf_sock_ops *ops) {
 }
 ```
 
-Consult [monitor.bpf.c](https://github.com/lbrndnr/bpf-tracing-rc/blob/main/bpf-tracing/examples/monitor.bpf.c) for a more complete example.
+Consult [monitor.bpf.c](bpf-tracing/examples/monitor.bpf.c) for a more complete example.
