@@ -31,6 +31,8 @@ int verdict(struct sk_msg_md *msg) {
 SEC("sockops")
 int monitor_sockets(struct bpf_sock_ops *ops) {
     if (ops->op == BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB || ops->op == BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB) {
+        bpf_start_info_span("sockops");
+
         // we don't want to get called anymore for this connection
         bpf_sock_ops_cb_flags_set(ops, 0);
 
@@ -50,11 +52,15 @@ int monitor_sockets(struct bpf_sock_ops *ops) {
         if (skey.remote.port == 9999) {
             if (bpf_sock_hash_update(ops, &sock_map, &skey, BPF_ANY) < 0) {
                 bpf_warn("Failed to add socket [%pI4:%u->%pI4:%u]", &skey.local.ip4, skey.local.port, &skey.remote.ip4, skey.remote.port);
+                bpf_end_span("sockops");
+
                 return SK_PASS;
             }
 
             bpf_info("Add socket [%pI4:%u->%pI4:%u]", &skey.local.ip4, skey.local.port, &skey.remote.ip4, skey.remote.port);
         }
+
+        bpf_end_span("sockops");
     }
 
     return SK_PASS;

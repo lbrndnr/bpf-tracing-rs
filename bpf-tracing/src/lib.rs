@@ -1,58 +1,13 @@
+use crate::event::{Content, Event};
 use nix::sys::statfs::{FsType, statfs};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader},
     path::Path,
-    str::FromStr,
     thread::{self, JoinHandle},
 };
-use tracing;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum LogEvent {
-    Trace(String),
-    Debug(String),
-    Info(String),
-    Warn(String),
-    Error(String),
-}
-
-impl FromStr for LogEvent {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        const MARKER: &str = "bpf_trace_printk:";
-
-        let bytes = s.as_bytes();
-        let Some(marker_pos) = s.find(MARKER) else {
-            return Err("no marker found".to_string());
-        };
-        let after_marker = marker_pos + MARKER.len();
-
-        let Some(rel_l) = bytes[after_marker..].iter().position(|&b| b == b'[') else {
-            return Err("no '[' found after marker".to_string());
-        };
-        let l = after_marker + rel_l;
-
-        let Some(rel_r) = bytes[l + 1..].iter().position(|&b| b == b']') else {
-            return Err("no ']' found after '['".to_string());
-        };
-        let r = l + 1 + rel_r;
-
-        // safe: '[' and ']' are ASCII boundaries
-        let inner = &s[l + 1..r];
-        let msg = s[r + 1..].trim().to_string();
-
-        match inner {
-            "TRACE" => Ok(LogEvent::Trace(msg)),
-            "DEBUG" => Ok(LogEvent::Debug(msg)),
-            "INFO" => Ok(LogEvent::Info(msg)),
-            "WARN" => Ok(LogEvent::Warn(msg)),
-            "ERROR" => Ok(LogEvent::Error(msg)),
-            _ => Err("unknown event type".to_string()),
-        }
-    }
-}
+mod event;
 
 pub fn try_init() -> io::Result<JoinHandle<()>> {
     let pipe = get_trace_pipe()?;
@@ -117,13 +72,17 @@ fn observe<P: AsRef<Path>>(
     Ok(handle)
 }
 
-fn emit(event: LogEvent) {
-    match event {
-        LogEvent::Trace(msg) => tracing::trace!(target: "bpf", "{}", msg),
-        LogEvent::Debug(msg) => tracing::debug!(target: "bpf", "{}", msg),
-        LogEvent::Info(msg) => tracing::info!(target: "bpf", "{}", msg),
-        LogEvent::Warn(msg) => tracing::warn!(target: "bpf", "{}", msg),
-        LogEvent::Error(msg) => tracing::error!(target: "bpf", "{}", msg),
+fn emit(event: Event) {
+    match event.content {
+        Content::Message(msg) => match event.level {
+            tracing::Level::TRACE => tracing::trace!(target: "bpf", "{}", msg),
+            tracing::Level::DEBUG => tracing::debug!(target: "bpf", "{}", msg),
+            tracing::Level::INFO => tracing::info!(target: "bpf", "{}", msg),
+            tracing::Level::WARN => tracing::warn!(target: "bpf", "{}", msg),
+            tracing::Level::ERROR => tracing::error!(target: "bpf", "{}", msg),
+        },
+        Content::StartSpan => {}
+        Content::EndSpan => {}
     }
 }
 
@@ -164,13 +123,5 @@ mod tests {
 
         assert_eq!(rx.recv().unwrap(), "hello".to_string());
         assert_eq!(rx.recv().unwrap(), "world".to_string());
-    }
-
-    #[test]
-    fn parse_log_events() {
-        assert_eq!(
-            LogEvent::Trace(String::from("test")),
-            "bpf_trace_printk: [TRACE] test".parse().expect("parse")
-        );
     }
 }
