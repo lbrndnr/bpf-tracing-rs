@@ -4,7 +4,7 @@ This is a tracing facility for eBPF that integrates neatly into the [tracing](ht
 
 ## Usage
 
-Include the [bpf-tracing.h](include/bpf-tracing.h) header.
+Include the [bpf-tracing.h](include/bpf_tracing.h) header.
 
 ```c
 #include "bpf-tracing.h"
