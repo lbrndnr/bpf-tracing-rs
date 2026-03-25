@@ -1,58 +1,88 @@
 use std::str::FromStr;
-use tracing;
+use tracing::{self, Level};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Event {
-    pub level: tracing::Level,
-    pub content: Content,
+    pub kind: Kind,
+    pub cpu: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Content {
-    Message(String),
-    StartSpan,
-    EndSpan,
+pub enum Kind {
+    Message(String, Level),
+    StartSpan(String, Level),
+    EndSpan(String),
+}
+
+impl Kind {
+    pub fn level(&self) -> Option<Level> {
+        match self {
+            Kind::Message(_, level) | Kind::StartSpan(_, level) => Some(*level),
+            Kind::EndSpan(_) => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseError {
+    InvalidLog,
+    InvalidLevel,
+    InvalidCpu,
 }
 
 impl FromStr for Event {
-    type Err = String;
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("{}", s);
         const MARKER: &str = "bpf_trace_printk:";
 
-        let bytes = s.as_bytes();
-        let Some(marker_pos) = s.find(MARKER) else {
-            return Err("no marker found".to_string());
-        };
-        let after_marker = marker_pos + MARKER.len();
+        fn extract(lhs: char, rhs: char, s: &str) -> Option<(usize, &str)> {
+            let Some(l) = s.find(lhs) else { return None };
+            let Some(r) = s[l + 1..].find(rhs) else {
+                return None;
+            };
+            let r = l + 1 + r;
+            Some((r, &s[l + 1..r]))
+        }
 
-        let Some(rel_l) = bytes[after_marker..].iter().position(|&b| b == b'[') else {
-            return Err("no '[' found after marker".to_string());
+        let Some((cpu_idx, cpu)) = extract('[', ']', s) else {
+            return Err(ParseError::InvalidCpu);
         };
-        let l = after_marker + rel_l;
 
-        let Some(rel_r) = bytes[l + 1..].iter().position(|&b| b == b']') else {
-            return Err("no ']' found after '['".to_string());
+        let Some(msg_idx) = s[cpu_idx..].find(MARKER) else {
+            return Err(ParseError::InvalidLog);
         };
-        let r = l + 1 + rel_r;
+        let msg_idx = cpu_idx + msg_idx;
 
-        // safe: '[' and ']' are ASCII boundaries
-        let inner = &s[l + 1..r];
-        let msg = s[r + 1..].trim().to_string();
-
-        let level = match inner {
-            "TRACE" => tracing::Level::TRACE,
-            "DEBUG" => tracing::Level::DEBUG,
-            "INFO" => tracing::Level::INFO,
-            "WARN" => tracing::Level::WARN,
-            "ERROR" => tracing::Level::ERROR,
-            _ => return Err("unknown event type".to_string()),
+        let Some((level_idx, level)) = extract('[', ']', &s[msg_idx..]) else {
+            return Err(ParseError::InvalidLevel);
         };
-        Ok(Event {
-            level,
-            content: Content::Message(msg),
-        })
+        let level_idx = level_idx + msg_idx;
+
+        let Ok(cpu) = cpu.parse() else {
+            return Err(ParseError::InvalidCpu);
+        };
+
+        let msg = s[level_idx + 1..].trim().to_string();
+
+        let kind = if &level[0..1] == "<" {
+            let name = level[1..].trim().to_string();
+            Kind::EndSpan(name)
+        } else {
+            if &level[0..1] == ">" {
+                let Ok(level) = Level::from_str(&level[1..]) else {
+                    return Err(ParseError::InvalidLevel);
+                };
+                Kind::StartSpan(msg, level)
+            } else {
+                let Ok(level) = Level::from_str(level) else {
+                    return Err(ParseError::InvalidLevel);
+                };
+                Kind::Message(msg, level)
+            }
+        };
+
+        Ok(Event { kind, cpu })
     }
 }
 
@@ -61,13 +91,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_log_events() {
-        let event: Event = "bpf_trace_printk: [TRACE] test".parse().expect("parse");
-        assert!(matches!(event.content, Content::Message(_)));
+    fn parse_message() {
+        let log = format!(
+            "packets-149149 [{:03}] ...11 78517.088267: bpf_trace_printk: [{}] {}",
+            7,
+            Level::DEBUG,
+            "test"
+        );
+        let event: Event = log.parse().expect("parse");
+        assert_eq!(
+            event.kind,
+            Kind::Message(String::from("test"), Level::DEBUG)
+        );
+        assert_eq!(event.cpu, 7);
+    }
 
-        // let event = "packets-149149  [003] ...11 78517.088267: bpf_trace_printk: EOS sockop"
-        //     .parse()
-        //     .expect("parse");
-        // assert_eq!(event, LogEvent::Trace(String::from("sockop")));
+    #[test]
+    fn parse_span_start() {
+        let log = format!(
+            "packets-149149 [{:03}] ...11 78517.088267: bpf_trace_printk: [>{}] {}",
+            7,
+            Level::ERROR,
+            "test"
+        );
+        let event: Event = log.parse().expect("parse");
+        assert_eq!(
+            event.kind,
+            Kind::StartSpan(String::from("test"), Level::ERROR)
+        );
+        assert_eq!(event.cpu, 7);
+    }
+
+    #[test]
+    fn parse_span_end() {
+        let log = format!(
+            "packets-149149 [{:03}] ...11 78517.088267: bpf_trace_printk: [<{}]",
+            12, "test_start"
+        );
+        let event: Event = log.parse().expect("parse");
+        assert_eq!(
+            event.kind,
+            Kind::EndSpan(String::from("test_start"))
+        );
+        assert_eq!(event.cpu, 12);
     }
 }

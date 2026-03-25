@@ -1,19 +1,28 @@
-use crate::event::{Content, Event};
+use crate::event::{Event, Kind};
 use nix::sys::statfs::{FsType, statfs};
 use std::{
+    collections::{HashMap, VecDeque},
     fs::File,
     io::{self, BufRead, BufReader},
     path::Path,
     thread::{self, JoinHandle},
 };
+use tracing::{self, Level, Metadata, field::ValueSet, span::Span};
 
 mod event;
 
+type Spans = Vec<VecDeque<Span>>;
+
 pub fn try_init() -> io::Result<JoinHandle<()>> {
     let pipe = get_trace_pipe()?;
-    observe(&pipe, |val| {
+    let cpus = thread::available_parallelism()?.get();
+    let mut spans = Vec::new();
+    for _ in 0..cpus {
+        spans.push(VecDeque::new());
+    }
+    observe(&pipe, move |val| {
         if let Ok(event) = val.parse() {
-            emit(event);
+            emit(event, &mut spans);
         }
     })
 }
@@ -57,7 +66,7 @@ fn get_trace_pipe() -> io::Result<impl AsRef<Path>> {
 
 fn observe<P: AsRef<Path>>(
     path: P,
-    callback: impl Fn(String) + Send + Sync + 'static,
+    mut callback: impl FnMut(String) + Send + Sync + 'static,
 ) -> io::Result<JoinHandle<()>> {
     let path = path.as_ref().to_path_buf();
     let file = File::open(&path)?;
@@ -72,17 +81,30 @@ fn observe<P: AsRef<Path>>(
     Ok(handle)
 }
 
-fn emit(event: Event) {
-    match event.content {
-        Content::Message(msg) => match event.level {
-            tracing::Level::TRACE => tracing::trace!(target: "bpf", "{}", msg),
-            tracing::Level::DEBUG => tracing::debug!(target: "bpf", "{}", msg),
-            tracing::Level::INFO => tracing::info!(target: "bpf", "{}", msg),
-            tracing::Level::WARN => tracing::warn!(target: "bpf", "{}", msg),
-            tracing::Level::ERROR => tracing::error!(target: "bpf", "{}", msg),
-        },
-        Content::StartSpan => {}
-        Content::EndSpan => {}
+fn emit(event: Event, spans: &mut Spans) {
+    match event.kind {
+        Kind::Message(msg, level) => {
+            let _entered = spans[event.cpu].back().map(|span| span.enter());
+            match level {
+                Level::TRACE => tracing::trace!(target: "bpf", "{msg}"),
+                Level::DEBUG => tracing::debug!(target: "bpf", "{msg}"),
+                Level::INFO => tracing::info!(target: "bpf", "{msg}"),
+                Level::WARN => tracing::warn!(target: "bpf", "{msg}"),
+                Level::ERROR => tracing::error!(target: "bpf", "{msg}"),
+            };
+        }
+        Kind::StartSpan(name, level) => {
+            let parent = spans[event.cpu].back();
+            let span = match level {
+                Level::TRACE => tracing::trace_span!("bpf", "{}", name),
+                Level::DEBUG => tracing::debug_span!("bpf", "{}", name),
+                Level::INFO => tracing::info_span!("bpf", "{}", name),
+                Level::WARN => tracing::warn_span!("bpf", "{}", name),
+                Level::ERROR => tracing::error_span!("bpf", "{}", name),
+            };
+            spans[event.cpu].push_back(span);
+        }
+        Kind::EndSpan(name) => _ = spans[event.cpu].pop_back(),
     }
 }
 
