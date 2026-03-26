@@ -7,7 +7,7 @@ This is a tracing facility for eBPF that integrates neatly into the [tracing](ht
 Include the [bpf_tracing.h](include/bpf_tracing.h) header.
 
 ```c
-#include "bpf-tracing.h"
+#include "bpf_tracing.h"
 
 SEC("sockops")
 int monitor_sockets(struct bpf_sock_ops *ops) {
