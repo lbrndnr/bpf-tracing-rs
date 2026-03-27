@@ -1,6 +1,6 @@
 [package]
 name = "bpf_tracing"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
 license = "GPL-3.0"
 authors = [
@@ -18,7 +18,7 @@ tracing = "0.1.44"
 
 [build-dependencies]
 libbpf-cargo = "0.26.1"
-bpf-tracing-include = { path = "../bpf-tracing-include" }
+bpf-tracing-include = { path = "../bpf-tracing-include", version = "0.0.1" }
 
 [dev-dependencies]
 anyhow = "1.0.102"

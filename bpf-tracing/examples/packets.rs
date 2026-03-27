@@ -22,7 +22,7 @@ include!(concat!(env!("OUT_DIR"), "/monitor.skel.rs"));
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::FULL)
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::ACTIVE)
         .init();
 
     bpf_tracing::try_init()?;

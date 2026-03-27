@@ -1,6 +1,6 @@
 [package]
 name = "bpflog"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
 license = "GPL-3.0"
 authors = [
@@ -13,7 +13,7 @@ keywords = ["ebpf", "bpf", "libbpf", "tracing", "logging"]
 
 [dependencies]
 anyhow = "1.0.102"
-bpf_tracing = { path = "../bpf-tracing" }
+bpf_tracing = { path = "../bpf-tracing", version = "0.0.1" }
 clap = "4.6.0"
 signal-hook = "0.4.3"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
