@@ -21,7 +21,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=BPF_LOG");
 
     let src = PathBuf::from(&manifest_dir)
-        .join("examples")
+        .join("src")
         .join("monitor.bpf.c");
     println!("cargo:rerun-if-changed={src:?}");
 

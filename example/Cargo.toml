@@ -1,0 +1,17 @@
+[package]
+name = "example"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1.0.102"
+bpf_tracing = { path = "../bpf-tracing", version = "0.0.1" }
+libbpf-rs = "0.26.1"
+libc = "0.2.182"
+tempfile = "3.27.0"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[build-dependencies]
+libbpf-cargo = "0.26.1"
+bpf-tracing-include = { path = "../bpf-tracing-include", version = "0.0.1" }

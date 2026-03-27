@@ -96,15 +96,10 @@ version = "0.0.1"
 name = "bpf_tracing"
 version = "0.0.1"
 dependencies = [
- "anyhow",
  "bpf-tracing-include",
  "libbpf-cargo",
- "libbpf-rs",
- "libc",
  "nix",
- "tempfile",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -255,6 +250,20 @@ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
  "windows-sys",
+]
+
+[[package]]
+name = "example"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bpf-tracing-include",
+ "bpf_tracing",
+ "libbpf-cargo",
+ "libbpf-rs",
+ "libc",
+ "tempfile",
+ "tracing-subscriber",
 ]
 
 [[package]]
