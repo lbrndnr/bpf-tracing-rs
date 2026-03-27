@@ -89,11 +89,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
-name = "bpf-tracing-include"
-version = "0.0.1"
-
-[[package]]
-name = "bpf_tracing"
+name = "bpf-tracing"
 version = "0.0.1"
 dependencies = [
  "bpf-tracing-include",
@@ -103,11 +99,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bpf-tracing-include"
+version = "0.0.1"
+
+[[package]]
 name = "bpflog"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "bpf_tracing",
+ "bpf-tracing",
  "clap",
  "signal-hook",
  "tracing-subscriber",
@@ -257,8 +257,8 @@ name = "example"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bpf-tracing",
  "bpf-tracing-include",
- "bpf_tracing",
  "libbpf-cargo",
  "libbpf-rs",
  "libc",

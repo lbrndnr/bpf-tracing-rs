@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.102"
-bpf_tracing = { path = "../bpf-tracing", version = "0.0.1" }
+bpf-tracing = { path = "../bpf-tracing", version = "0.0.1" }
 libbpf-rs = "0.26.1"
 libc = "0.2.182"
 tempfile = "3.27.0"
