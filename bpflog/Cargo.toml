@@ -2,14 +2,8 @@
 name = "bpflog"
 version = "0.0.1"
 edition = "2024"
-license = "GPL-3.0"
-authors = [
-    "lbrndnr <mail@laurinbrandner.ch>",
-]
 description = "A more modern replacement for bpftool's tracelog, supporting bpf-tracing"
-repository = "https://github.com/lbrndnr/bpf-tracing-rs"
-readme = "../README.md"
-keywords = ["ebpf", "bpf", "libbpf", "tracing", "logging"]
+publish=false
 
 [dependencies]
 anyhow = "1.0.102"

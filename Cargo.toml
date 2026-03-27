@@ -1,3 +1,12 @@
 [workspace]
 resolver = "2"
 members = ["bpf-tracing", "bpf-tracing-include", "bpflog", "example"]
+
+[workspace.package]
+license = "GPL-3.0"
+authors = [
+    "lbrndnr <mail@laurinbrandner.ch>",
+]
+repository = "https://github.com/lbrndnr/bpf-tracing-rs"
+readme = "README.md"
+keywords = ["ebpf", "bpf", "libbpf", "tracing", "logging"]
