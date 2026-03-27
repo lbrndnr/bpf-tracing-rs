@@ -2,6 +2,14 @@
 name = "bpf_tracing"
 version = "0.1.0"
 edition = "2024"
+license = "GPL-3.0"
+authors = [
+    "lbrndnr <mail@laurinbrandner.ch>",
+]
+description = "An eBPF tracing facility that integrates neatly into Rust's tracing"
+repository = "https://github.com/lbrndnr/bpf-tracing-rs"
+readme = "../README.md"
+keywords = ["ebpf", "bpf", "libbpf", "tracing", "logging"]
 
 [dependencies]
 libc = "0.2.182"
