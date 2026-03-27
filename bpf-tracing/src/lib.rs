@@ -99,13 +99,13 @@ fn emit(event: Event, spans: &mut Spans) {
             };
         }
         Kind::StartSpan(name, level) => {
-            let parent = spans[event.cpu].back();
+            let parent = spans[event.cpu].back().and_then(|p| p.id());
             let span = match level {
-                Level::TRACE => tracing::trace_span!(target: "bpf", "{}", name),
-                Level::DEBUG => tracing::debug_span!(target: "bpf", "{}", name),
-                Level::INFO => tracing::info_span!(target: "bpf", "{}", name),
-                Level::WARN => tracing::warn_span!(target: "bpf", "{}", name),
-                Level::ERROR => tracing::error_span!(target: "bpf", "{}", name),
+                Level::TRACE => tracing::trace_span!(target: "bpf", parent: parent, "span", name),
+                Level::DEBUG => tracing::debug_span!(target: "bpf", parent: parent, "span", name),
+                Level::INFO => tracing::info_span!(target: "bpf", parent: parent, "span", name),
+                Level::WARN => tracing::warn_span!(target: "bpf", parent: parent, "span", name),
+                Level::ERROR => tracing::error_span!(target: "bpf", parent: parent, "span", name),
             };
             spans[event.cpu].push_back(span.entered());
         }
