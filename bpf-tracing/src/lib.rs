@@ -1,28 +1,32 @@
 use crate::event::{Event, Kind};
 use nix::sys::statfs::{FsType, statfs};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     fs::File,
     io::{self, BufRead, BufReader},
     path::Path,
     thread::{self, JoinHandle},
 };
-use tracing::{self, Level, Metadata, field::ValueSet, span::Span};
+use tracing::{self, Level, span::EnteredSpan};
 
 mod event;
 
-type Spans = Vec<VecDeque<Span>>;
+type Spans = Vec<VecDeque<EnteredSpan>>;
 
 pub fn try_init() -> io::Result<JoinHandle<()>> {
     let pipe = get_trace_pipe()?;
-    let cpus = thread::available_parallelism()?.get();
-    let mut spans = Vec::new();
-    for _ in 0..cpus {
-        spans.push(VecDeque::new());
-    }
-    observe(&pipe, move |val| {
+    let new_cx = || {
+        let cpus = thread::available_parallelism().unwrap().get();
+        let mut spans: Spans = Vec::new();
+        for _ in 0..cpus {
+            spans.push(VecDeque::new());
+        }
+        spans
+    };
+
+    observe(&pipe, new_cx, move |val, spans| {
         if let Ok(event) = val.parse() {
-            emit(event, &mut spans);
+            emit(event, spans);
         }
     })
 }
@@ -64,17 +68,19 @@ fn get_trace_pipe() -> io::Result<impl AsRef<Path>> {
     ))
 }
 
-fn observe<P: AsRef<Path>>(
+fn observe<P: AsRef<Path>, C>(
     path: P,
-    mut callback: impl FnMut(String) + Send + Sync + 'static,
+    new_cx: impl FnOnce() -> C + Send + Sync + 'static,
+    mut callback: impl FnMut(String, &mut C) + Send + Sync + 'static,
 ) -> io::Result<JoinHandle<()>> {
     let path = path.as_ref().to_path_buf();
     let file = File::open(&path)?;
 
     let handle = thread::spawn(move || {
+        let mut cx = new_cx();
         let mut lines = BufReader::new(file).lines();
         while let Some(Ok(line)) = lines.next() {
-            callback(line);
+            callback(line, &mut cx);
         }
     });
 
@@ -84,7 +90,6 @@ fn observe<P: AsRef<Path>>(
 fn emit(event: Event, spans: &mut Spans) {
     match event.kind {
         Kind::Message(msg, level) => {
-            let _entered = spans[event.cpu].back().map(|span| span.enter());
             match level {
                 Level::TRACE => tracing::trace!(target: "bpf", "{msg}"),
                 Level::DEBUG => tracing::debug!(target: "bpf", "{msg}"),
@@ -96,13 +101,13 @@ fn emit(event: Event, spans: &mut Spans) {
         Kind::StartSpan(name, level) => {
             let parent = spans[event.cpu].back();
             let span = match level {
-                Level::TRACE => tracing::trace_span!("bpf", "{}", name),
-                Level::DEBUG => tracing::debug_span!("bpf", "{}", name),
-                Level::INFO => tracing::info_span!("bpf", "{}", name),
-                Level::WARN => tracing::warn_span!("bpf", "{}", name),
-                Level::ERROR => tracing::error_span!("bpf", "{}", name),
+                Level::TRACE => tracing::trace_span!(target: "bpf", "{}", name),
+                Level::DEBUG => tracing::debug_span!(target: "bpf", "{}", name),
+                Level::INFO => tracing::info_span!(target: "bpf", "{}", name),
+                Level::WARN => tracing::warn_span!(target: "bpf", "{}", name),
+                Level::ERROR => tracing::error_span!(target: "bpf", "{}", name),
             };
-            spans[event.cpu].push_back(span);
+            spans[event.cpu].push_back(span.entered());
         }
         Kind::EndSpan(name) => _ = spans[event.cpu].pop_back(),
     }
@@ -120,9 +125,12 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let path = temp_dir.path().join("test.log");
 
-        fn callback(_: String) {}
+        fn no_cx() -> Option<()> {
+            None
+        }
+        fn callback(_: String, _: &mut Option<()>) {}
 
-        assert!(observe(path, callback).is_err());
+        assert!(observe(path, no_cx, callback).is_err());
     }
 
     #[test]
@@ -132,11 +140,14 @@ mod tests {
         let mut file = File::create(&path).unwrap();
         let (tx, rx) = mpsc::channel();
 
-        let callback = move |val: String| {
+        fn no_cx() -> Option<()> {
+            None
+        }
+        let callback = move |val: String, _: &mut Option<()>| {
             tx.send(val).ok();
         };
 
-        observe(path, callback).expect("observe");
+        observe(path, no_cx, callback).expect("observe");
 
         file.write_all(b"hello\n").unwrap();
         file.write_all(b"world\n").unwrap();
