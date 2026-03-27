@@ -10,6 +10,7 @@ tracing = "0.1.44"
 
 [build-dependencies]
 libbpf-cargo = "0.26.1"
+bpf-tracing-include = { path = "../bpf-tracing-include" }
 
 [dev-dependencies]
 anyhow = "1.0.102"

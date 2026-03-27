@@ -30,6 +30,9 @@ fn main() {
     fs::create_dir_all(&out_dir).unwrap();
     let out = out_dir.clone().join("monitor.skel.rs");
 
+    let bpf_tracing_include_dir = bpf_tracing_include::create_include_dir().unwrap();
+    println!("cargo:warning=asset at {}", bpf_tracing_include_dir);
+
     SkeletonBuilder::new()
         .source(&src)
         .clang_args([
@@ -37,6 +40,8 @@ fn main() {
             OsStr::new(format!("BPF_LOG_LEVEL={log_level}").as_str()),
             OsStr::new("-I"),
             OsStr::new("../include"),
+            OsStr::new("-I"),
+            OsStr::new(&bpf_tracing_include_dir),
         ])
         .build_and_generate(&out)
         .unwrap();
