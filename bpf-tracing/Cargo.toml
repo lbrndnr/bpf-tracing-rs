@@ -3,6 +3,11 @@ name = "bpf_tracing"
 version = "0.0.1"
 edition = "2024"
 description = "An eBPF tracing facility that integrates neatly into Rust's tracing"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
 
 [dependencies]
 nix = { version = "0.31.2", features = ["fs"] }
