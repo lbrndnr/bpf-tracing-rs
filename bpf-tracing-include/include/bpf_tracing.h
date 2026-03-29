@@ -1,5 +1,5 @@
-#ifndef __BPF_TRACING_H__
-#define __BPF_TRACING_H__
+#ifndef __BPF_TRACING_RS_H__
+#define __BPF_TRACING_RS_H__
 
 #define BPF_LOG_LEVEL_NONE 0
 #define BPF_LOG_LEVEL_ERROR 1
@@ -90,6 +90,21 @@
         #define bpf_end_span(...) (0)
     #endif
 
+#else
+
+#define bpf_trace(...) (0)
+#define bpf_debug(...) (0)
+#define bpf_info(...) (0)
+#define bpf_warn(...) (0)
+#define bpf_error(...) (0)
+
+#define bpf_start_trace_span(...) (0)
+#define bpf_start_debug_span(...) (0)
+#define bpf_start_info_span(...) (0)
+#define bpf_start_warn_span(...) (0)
+#define bpf_start_error_span(...) (0)
+#define bpf_end_span(...) (0)
+
 #endif
 
-#endif // __BPF_TRACING_H__
+#endif // __BPF_TRACING_RS_H__

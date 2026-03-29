@@ -15,4 +15,4 @@ tracing = "0.1.44"
 
 [build-dependencies]
 libbpf-cargo = "0.26.1"
-bpf-tracing-include = { path = "../bpf-tracing-include", version = "0.0.1" }
+bpf-tracing-include = { path = "../bpf-tracing-include", version = "0.0.2" }

@@ -4,6 +4,6 @@ use std::{
 };
 
 #[inline]
-pub fn create_include_dir() -> PathBuf {
+pub fn include_path_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("include")
 }
