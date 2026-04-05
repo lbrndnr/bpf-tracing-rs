@@ -14,7 +14,7 @@ mod event;
 
 const TARGET: &str = "bpf";
 
-type Spans = Vec<VecDeque<EnteredSpan>>;
+type Spans = Vec<VecDeque<(String, EnteredSpan)>>;
 
 pub fn try_init() -> io::Result<JoinHandle<()>> {
     let pipe = get_trace_pipe()?;
@@ -123,14 +123,20 @@ fn emit(event: Event) {
             });
 
             SPANS.with_borrow_mut(|spans| {
-                let parent = spans[event.cpu].back().and_then(|p| p.id());
+                let parent = spans[event.cpu].back().and_then(|(_, p)| p.id());
                 let values = tracing::valueset!(meta.fields(),);
 
                 let span = tracing::Span::child_of(parent, meta, &values);
-                spans[event.cpu].push_back(span.entered());
+                spans[event.cpu].push_back((name, span.entered()));
             });
         }
-        Kind::EndSpan(_name) => _ = SPANS.with_borrow_mut(|spans| spans[event.cpu].pop_back()),
+        Kind::EndSpan(name) => SPANS.with_borrow_mut(|spans| {
+            while let Some((n, span)) = spans[event.cpu].pop_back() {
+                if n == name {
+                    break;
+                }
+            }
+        }),
     }
 }
 
