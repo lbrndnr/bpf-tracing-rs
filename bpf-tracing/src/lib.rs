@@ -18,18 +18,10 @@ type Spans = Vec<VecDeque<EnteredSpan>>;
 
 pub fn try_init() -> io::Result<JoinHandle<()>> {
     let pipe = get_trace_pipe()?;
-    let new_cx = || {
-        let cpus = thread::available_parallelism().unwrap().get();
-        let mut spans: Spans = Vec::new();
-        for _ in 0..cpus {
-            spans.push(VecDeque::new());
-        }
-        spans
-    };
 
-    observe(&pipe, new_cx, move |val, spans| {
+    observe(&pipe, move |val| {
         if let Ok(event) = val.parse() {
-            emit(event, spans);
+            emit(event);
         }
     })
 }
@@ -71,28 +63,34 @@ fn get_trace_pipe() -> io::Result<impl AsRef<Path>> {
     ))
 }
 
-fn observe<P: AsRef<Path>, C>(
+fn observe<P: AsRef<Path>>(
     path: P,
-    new_cx: impl FnOnce() -> C + Send + Sync + 'static,
-    mut callback: impl FnMut(String, &mut C) + Send + Sync + 'static,
+    callback: impl Fn(String) + Send + Sync + 'static,
 ) -> io::Result<JoinHandle<()>> {
     let path = path.as_ref().to_path_buf();
     let file = File::open(&path)?;
 
     let handle = thread::spawn(move || {
-        let mut cx = new_cx();
         let mut lines = BufReader::new(file).lines();
         while let Some(Ok(line)) = lines.next() {
-            callback(line, &mut cx);
+            callback(line);
         }
     });
 
     Ok(handle)
 }
 
-fn emit(event: Event, spans: &mut Spans) {
+fn emit(event: Event) {
     thread_local! {
         static CALLSITES: RefCell<HashMap<String, &'static Metadata<'static>>> = RefCell::new(HashMap::new());
+        static SPANS: RefCell<Spans> = {
+            let cpus = thread::available_parallelism().unwrap().get();
+            let mut spans: Spans = Vec::new();
+            for _ in 0..cpus {
+                spans.push(VecDeque::new());
+            }
+            RefCell::new(spans)
+        };
     }
 
     match event.kind {
@@ -124,13 +122,15 @@ fn emit(event: Event, spans: &mut Spans) {
                 meta
             });
 
-            let parent = spans[event.cpu].back().and_then(|p| p.id());
-            let values = tracing::valueset!(meta.fields(),);
+            SPANS.with_borrow_mut(|spans| {
+                let parent = spans[event.cpu].back().and_then(|p| p.id());
+                let values = tracing::valueset!(meta.fields(),);
 
-            let span = tracing::Span::child_of(parent, meta, &values);
-            spans[event.cpu].push_back(span.entered());
+                let span = tracing::Span::child_of(parent, meta, &values);
+                spans[event.cpu].push_back(span.entered());
+            });
         }
-        Kind::EndSpan(_name) => _ = spans[event.cpu].pop_back(),
+        Kind::EndSpan(_name) => _ = SPANS.with_borrow_mut(|spans| spans[event.cpu].pop_back()),
     }
 }
 
@@ -146,12 +146,9 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let path = temp_dir.path().join("test.log");
 
-        fn no_cx() -> Option<()> {
-            None
-        }
-        fn callback(_: String, _: &mut Option<()>) {}
+        fn callback(_: String) {}
 
-        assert!(observe(path, no_cx, callback).is_err());
+        assert!(observe(path, callback).is_err());
     }
 
     #[test]
@@ -161,14 +158,11 @@ mod tests {
         let mut file = File::create(&path).unwrap();
         let (tx, rx) = mpsc::channel();
 
-        fn no_cx() -> Option<()> {
-            None
-        }
-        let callback = move |val: String, _: &mut Option<()>| {
+        let callback = move |val: String| {
             tx.send(val).ok();
         };
 
-        observe(path, no_cx, callback).expect("observe");
+        observe(path, callback).expect("observe");
 
         file.write_all(b"hello\n").unwrap();
         file.write_all(b"world\n").unwrap();

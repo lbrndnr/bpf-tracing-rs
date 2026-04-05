@@ -95,6 +95,7 @@ dependencies = [
  "bpf-tracing-include",
  "libbpf-cargo",
  "nix",
+ "tempfile",
  "tracing",
  "tracing-subscriber",
 ]
