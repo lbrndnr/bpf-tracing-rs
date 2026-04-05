@@ -96,6 +96,7 @@ dependencies = [
  "libbpf-cargo",
  "nix",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

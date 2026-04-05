@@ -1,15 +1,18 @@
 use crate::event::{Event, Kind};
 use nix::sys::statfs::{FsType, statfs};
 use std::{
-    collections::VecDeque,
+    cell::RefCell,
+    collections::{HashMap, VecDeque},
     fs::File,
     io::{self, BufRead, BufReader},
     path::Path,
     thread::{self, JoinHandle},
 };
-use tracing::{self, Level, span::EnteredSpan};
+use tracing::{self, Level, metadata::Metadata, span::EnteredSpan};
 
 mod event;
+
+const TARGET: &str = "bpf";
 
 type Spans = Vec<VecDeque<EnteredSpan>>;
 
@@ -88,28 +91,46 @@ fn observe<P: AsRef<Path>, C>(
 }
 
 fn emit(event: Event, spans: &mut Spans) {
+    thread_local! {
+        static CALLSITES: RefCell<HashMap<String, &'static Metadata<'static>>> = RefCell::new(HashMap::new());
+    }
+
     match event.kind {
         Kind::Message(msg, level) => {
             match level {
-                Level::TRACE => tracing::trace!(target: "bpf", "{msg}"),
-                Level::DEBUG => tracing::debug!(target: "bpf", "{msg}"),
-                Level::INFO => tracing::info!(target: "bpf", "{msg}"),
-                Level::WARN => tracing::warn!(target: "bpf", "{msg}"),
-                Level::ERROR => tracing::error!(target: "bpf", "{msg}"),
+                Level::TRACE => tracing::trace!(target: TARGET, "{}", msg),
+                Level::DEBUG => tracing::debug!(target: TARGET, "{}", msg),
+                Level::INFO => tracing::info!(target: TARGET, "{}", msg),
+                Level::WARN => tracing::warn!(target: TARGET, "{}", msg),
+                Level::ERROR => tracing::error!(target: TARGET, "{}", msg),
             };
         }
         Kind::StartSpan(name, level) => {
+            let mut cs = CALLSITES.take();
+            let meta = cs.entry(name.clone()).or_insert_with(|| {
+                let name = name.clone();
+                let leaked_name: &'static str = Box::leak(name.clone().into_boxed_str());
+                let callsite = tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::SPAN, fields: &[]);
+                let meta = Box::leak(Box::new(Metadata::new(
+                    leaked_name,
+                    TARGET,
+                    level,
+                    Some(file!()),
+                    Some(line!()),
+                    Some(module_path!()),
+                    tracing::field::FieldSet::new(&[], tracing::callsite::Identifier(callsite)),
+                    tracing::metadata::Kind::SPAN,
+                )));
+                meta
+            });
+
             let parent = spans[event.cpu].back().and_then(|p| p.id());
-            let span = match level {
-                Level::TRACE => tracing::trace_span!(target: "bpf", parent: parent, "span", name),
-                Level::DEBUG => tracing::debug_span!(target: "bpf", parent: parent, "span", name),
-                Level::INFO => tracing::info_span!(target: "bpf", parent: parent, "span", name),
-                Level::WARN => tracing::warn_span!(target: "bpf", parent: parent, "span", name),
-                Level::ERROR => tracing::error_span!(target: "bpf", parent: parent, "span", name),
-            };
+            let values = tracing::valueset!(meta.fields(),);
+
+            let span = tracing::Span::child_of(parent, meta, &values);
             spans[event.cpu].push_back(span.entered());
         }
-        Kind::EndSpan(name) => _ = spans[event.cpu].pop_back(),
+        Kind::EndSpan(_name) => _ = spans[event.cpu].pop_back(),
     }
 }
 

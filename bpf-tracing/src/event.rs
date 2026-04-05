@@ -14,15 +14,6 @@ pub enum Kind {
     EndSpan(String),
 }
 
-impl Kind {
-    pub fn level(&self) -> Option<Level> {
-        match self {
-            Kind::Message(_, level) | Kind::StartSpan(_, level) => Some(*level),
-            Kind::EndSpan(_) => None,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
     InvalidLog,
@@ -129,10 +120,7 @@ mod tests {
             12, "test_start"
         );
         let event: Event = log.parse().expect("parse");
-        assert_eq!(
-            event.kind,
-            Kind::EndSpan(String::from("test_start"))
-        );
+        assert_eq!(event.kind, Kind::EndSpan(String::from("test_start")));
         assert_eq!(event.cpu, 12);
     }
 }
