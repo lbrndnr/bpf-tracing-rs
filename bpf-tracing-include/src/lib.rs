@@ -1,8 +1,4 @@
-use std::{
-    env,
-    ffi::{OsStr, OsString},
-    path::{Path, PathBuf},
-};
+use std::{env, ffi::OsString, path::Path};
 use tracing::{Level, metadata::ParseLevelError};
 
 #[inline]
@@ -33,7 +29,12 @@ pub fn clang_args(level: Option<Level>, source_loc: bool) -> Vec<OsString> {
     }
 
     let log_level = format!("BPF_LOG_LEVEL={log_level}");
-    let mut args = vec![OsString::from("-D"), OsString::from(log_level)];
+    let mut args = vec![
+        OsString::from("-I"),
+        OsString::from(include_path_root()),
+        OsString::from("-D"),
+        OsString::from(log_level),
+    ];
     if source_loc {
         args.extend(vec![
             OsString::from("-D"),
@@ -45,8 +46,8 @@ pub fn clang_args(level: Option<Level>, source_loc: bool) -> Vec<OsString> {
 }
 
 #[inline]
-pub fn include_path_root() -> PathBuf {
+pub fn include_path_root() -> OsString {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("include");
     println!("cargo:rerun-if-changed={:?}", path);
-    path
+    OsString::from(path)
 }

@@ -16,13 +16,7 @@ fn main() {
     fs::create_dir_all(&out_dir).unwrap();
     let out = out_dir.clone().join("monitor.skel.rs");
 
-    let include_dir = bpf_tracing_include::include_path_root();
-    let mut args = vec![
-        OsString::from("-I"),
-        OsString::from("../include"),
-        OsString::from("-I"),
-        OsString::from(&include_dir),
-    ];
+    let mut args = vec![OsString::from("-I"), OsString::from("../include")];
     args.extend(bpf_tracing_include::clang_args_from_env(false));
 
     SkeletonBuilder::new()
