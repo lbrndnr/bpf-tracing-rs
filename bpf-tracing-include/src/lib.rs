@@ -22,6 +22,7 @@ pub fn clang_args_from_env(source_loc: bool) -> Vec<OsString> {
 
 /// Similar to [`clang_args_from_env`], but takes an explicit [`Level`].
 pub fn clang_args(level: Option<Level>, source_loc: bool) -> Vec<OsString> {
+    let mut args = vec![OsString::from("-I"), OsString::from(include_path_root())];
     let log_level = match level {
         Some(Level::ERROR) => 1,
         Some(Level::WARN) => 2,
@@ -31,21 +32,13 @@ pub fn clang_args(level: Option<Level>, source_loc: bool) -> Vec<OsString> {
         _ => 0,
     };
     if log_level == 0 {
-        return vec![];
+        return args;
     }
 
     let log_level = format!("BPF_LOG_LEVEL={log_level}");
-    let mut args = vec![
-        OsString::from("-I"),
-        OsString::from(include_path_root()),
-        OsString::from("-D"),
-        OsString::from(log_level),
-    ];
+    args.extend_from_slice(&[OsString::from("-D"), OsString::from(log_level)]);
     if source_loc {
-        args.extend(vec![
-            OsString::from("-D"),
-            OsString::from("BPF_LOG_FILE_INFO=1"),
-        ]);
+        args.extend_from_slice(&[OsString::from("-D"), OsString::from("BPF_LOG_FILE_INFO=1")]);
     }
 
     args
