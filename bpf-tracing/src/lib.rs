@@ -129,8 +129,6 @@ fn get_callsite(event: Event) -> Option<&'static Metadata<'static>> {
         if let Some(meta) = cs.get(&event) {
             Some(*meta)
         } else {
-            let content = event.content.clone();
-            let leaked_content: &'static str = Box::leak(content.into_boxed_str());
             let callsite = if kind == tracing::metadata::Kind::EVENT {
                 tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::EVENT, fields: &[])
             } else {
@@ -150,7 +148,7 @@ fn get_callsite(event: Event) -> Option<&'static Metadata<'static>> {
             };
 
             let meta = Box::leak(Box::new(Metadata::new(
-                leaked_content,
+                "",
                 TARGET,
                 level,
                 file,
