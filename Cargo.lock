@@ -103,6 +103,9 @@ dependencies = [
 [[package]]
 name = "bpf-tracing-include"
 version = "0.0.2"
+dependencies = [
+ "tracing",
+]
 
 [[package]]
 name = "bpflog"

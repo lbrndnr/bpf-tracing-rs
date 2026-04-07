@@ -8,13 +8,25 @@ use std::{
     path::Path,
     thread::{self, JoinHandle},
 };
-use tracing::{self, Level, metadata::Metadata, span::EnteredSpan};
+use tracing::{self, metadata::Metadata, span::EnteredSpan};
 
 mod event;
 
 const TARGET: &str = "bpf";
 
 type Spans = Vec<VecDeque<(String, EnteredSpan)>>;
+
+thread_local! {
+    static CALLSITES: RefCell<HashMap<Event, &'static Metadata<'static>>> = RefCell::new(HashMap::new());
+    static SPANS: RefCell<Spans> = {
+        let cpus = thread::available_parallelism().unwrap().get();
+        let mut spans: Spans = Vec::new();
+        for _ in 0..cpus {
+            spans.push(VecDeque::new());
+        }
+        RefCell::new(spans)
+    };
+}
 
 pub fn try_init() -> io::Result<JoinHandle<()>> {
     let pipe = get_trace_pipe()?;
@@ -80,64 +92,83 @@ fn observe<P: AsRef<Path>>(
     Ok(handle)
 }
 
-fn emit(event: Event) {
-    thread_local! {
-        static CALLSITES: RefCell<HashMap<String, &'static Metadata<'static>>> = RefCell::new(HashMap::new());
-        static SPANS: RefCell<Spans> = {
-            let cpus = thread::available_parallelism().unwrap().get();
-            let mut spans: Spans = Vec::new();
-            for _ in 0..cpus {
-                spans.push(VecDeque::new());
-            }
-            RefCell::new(spans)
-        };
-    }
+fn get_callsite(event: Event) -> Option<&'static Metadata<'static>> {
+    let (level, kind) = match event.kind {
+        Kind::Message(level) => (level, tracing::metadata::Kind::EVENT),
+        Kind::StartSpan(level) => (level, tracing::metadata::Kind::SPAN),
+        Kind::EndSpan => return None,
+    };
 
-    match event.kind {
-        Kind::Message(msg, level) => {
-            match level {
-                Level::TRACE => tracing::trace!(target: TARGET, "{}", msg),
-                Level::DEBUG => tracing::debug!(target: TARGET, "{}", msg),
-                Level::INFO => tracing::info!(target: TARGET, "{}", msg),
-                Level::WARN => tracing::warn!(target: TARGET, "{}", msg),
-                Level::ERROR => tracing::error!(target: TARGET, "{}", msg),
+    CALLSITES.with_borrow_mut(|cs| {
+        if let Some(meta) = cs.get(&event) {
+            Some(*meta)
+        } else {
+            let content = event.content.clone();
+            let leaked_content: &'static str = Box::leak(content.into_boxed_str());
+            let callsite = if kind == tracing::metadata::Kind::EVENT {
+                tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::EVENT, fields: &[])
+            } else {
+                tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::SPAN, fields: &[])
             };
-        }
-        Kind::StartSpan(name, level) => {
-            let mut cs = CALLSITES.take();
-            let meta = cs.entry(name.clone()).or_insert_with(|| {
-                let name = name.clone();
-                let leaked_name: &'static str = Box::leak(name.clone().into_boxed_str());
-                let callsite = tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::SPAN, fields: &[]);
-                let meta = Box::leak(Box::new(Metadata::new(
-                    leaked_name,
-                    TARGET,
-                    level,
-                    Some(file!()),
-                    Some(line!()),
-                    Some(module_path!()),
-                    tracing::field::FieldSet::new(&[], tracing::callsite::Identifier(callsite)),
-                    tracing::metadata::Kind::SPAN,
-                )));
-                meta
-            });
 
-            SPANS.with_borrow_mut(|spans| {
-                let parent = spans[event.cpu].back().and_then(|(_, p)| p.id());
-                let values = tracing::valueset!(meta.fields(),);
+            // let file = event.file.map(|f| Box::leak(f.into_boxed_str()));
 
-                let span = tracing::Span::child_of(parent, meta, &values);
-                spans[event.cpu].push_back((name, span.entered()));
-            });
+            let meta = Box::leak(Box::new(Metadata::new(
+                leaked_content,
+                TARGET,
+                level,
+                None,
+                event.line,
+                None,
+                tracing::field::FieldSet::new(
+                    &["message"],
+                    tracing::callsite::Identifier(callsite),
+                ),
+                kind,
+            )));
+            cs.insert(event, meta);
+
+            let meta: &'static Metadata = meta;
+            Some(meta)
         }
-        Kind::EndSpan(name) => SPANS.with_borrow_mut(|spans| {
-            while let Some((n, span)) = spans[event.cpu].pop_back() {
-                if n == name {
+    })
+}
+
+fn emit(event: Event) {
+    let cpu = event.cpu;
+    SPANS.with_borrow_mut(|spans| match &event.kind {
+        Kind::Message(_) => {
+            let content = event.content.clone();
+            let meta = get_callsite(event).expect("callsite");
+            let parent = spans[cpu].back().and_then(|(_, p)| p.id());
+
+            tracing::Event::child_of(
+                parent,
+                meta,
+                &tracing::valueset_all!(meta.fields(), "{}", content),
+            );
+        }
+        Kind::StartSpan(_) => {
+            let content = event.content.clone();
+            let meta = get_callsite(event).expect("callsite");
+            let parent = spans[cpu].back().and_then(|(_, p)| p.id());
+
+            let span = tracing::Span::child_of(
+                parent,
+                meta,
+                &tracing::valueset_all!(meta.fields(), "{}", content),
+            );
+            spans[cpu].push_back((content, span.entered()));
+        }
+        Kind::EndSpan => {
+            let content = event.content;
+            while let Some((n, _)) = spans[cpu].pop_back() {
+                if n == content {
                     break;
                 }
             }
-        }),
-    }
+        }
+    });
 }
 
 #[cfg(test)]

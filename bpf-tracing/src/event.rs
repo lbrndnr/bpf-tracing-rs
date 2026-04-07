@@ -1,17 +1,20 @@
 use std::str::FromStr;
 use tracing::{self, Level};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Event {
     pub kind: Kind,
+    pub content: String,
     pub cpu: usize,
+    pub file: Option<String>,
+    pub line: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
-    Message(String, Level),
-    StartSpan(String, Level),
-    EndSpan(String),
+    Message(Level),
+    StartSpan(Level),
+    EndSpan,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,26 +57,32 @@ impl FromStr for Event {
             return Err(ParseError::InvalidCpu);
         };
 
-        let msg = s[level_idx + 1..].trim().to_string();
+        let mut content = s[level_idx + 1..].trim().to_string();
 
         let kind = if &level[0..1] == "<" {
-            let name = level[1..].trim().to_string();
-            Kind::EndSpan(name)
+            content = level[1..].trim().to_string();
+            Kind::EndSpan
         } else {
             if &level[0..1] == ">" {
                 let Ok(level) = Level::from_str(&level[1..]) else {
                     return Err(ParseError::InvalidLevel);
                 };
-                Kind::StartSpan(msg, level)
+                Kind::StartSpan(level)
             } else {
                 let Ok(level) = Level::from_str(level) else {
                     return Err(ParseError::InvalidLevel);
                 };
-                Kind::Message(msg, level)
+                Kind::Message(level)
             }
         };
 
-        Ok(Event { kind, cpu })
+        Ok(Event {
+            kind,
+            content,
+            cpu,
+            file: None,
+            line: None,
+        })
     }
 }
 
@@ -90,10 +99,8 @@ mod tests {
             "test"
         );
         let event: Event = log.parse().expect("parse");
-        assert_eq!(
-            event.kind,
-            Kind::Message(String::from("test"), Level::DEBUG)
-        );
+        assert_eq!(event.kind, Kind::Message(Level::DEBUG));
+        assert_eq!(event.content, String::from("test"));
         assert_eq!(event.cpu, 7);
     }
 
@@ -106,10 +113,8 @@ mod tests {
             "test"
         );
         let event: Event = log.parse().expect("parse");
-        assert_eq!(
-            event.kind,
-            Kind::StartSpan(String::from("test"), Level::ERROR)
-        );
+        assert_eq!(event.kind, Kind::StartSpan(Level::ERROR));
+        assert_eq!(event.content, String::from("test"));
         assert_eq!(event.cpu, 7);
     }
 
@@ -120,7 +125,8 @@ mod tests {
             12, "test_start"
         );
         let event: Event = log.parse().expect("parse");
-        assert_eq!(event.kind, Kind::EndSpan(String::from("test_start")));
+        assert_eq!(event.kind, Kind::EndSpan);
+        assert_eq!(event.content, String::from("test_start"));
         assert_eq!(event.cpu, 12);
     }
 }

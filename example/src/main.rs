@@ -23,6 +23,8 @@ fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::ACTIVE)
+        .with_file(true)
+        .with_line_number(true)
         .init();
 
     bpf_tracing::try_init()?;
