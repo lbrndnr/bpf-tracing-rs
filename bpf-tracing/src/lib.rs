@@ -5,7 +5,7 @@ use std::{
     collections::{HashMap, VecDeque},
     fs::File,
     io::{self, BufRead, BufReader},
-    path::Path,
+    path::{Component, Path, PathBuf},
     thread::{self, JoinHandle},
 };
 use tracing::{self, metadata::Metadata, span::EnteredSpan};
@@ -92,6 +92,32 @@ fn observe<P: AsRef<Path>>(
     Ok(handle)
 }
 
+fn strip_matching_prefix_components(full: &Path, base: &Path) -> PathBuf {
+    let mut full_it = full.components().peekable();
+    let mut base_it = base.components().peekable();
+
+    while let (Some(f), Some(b)) = (full_it.peek(), base_it.peek()) {
+        if f == b {
+            full_it.next();
+            base_it.next();
+        } else {
+            break;
+        }
+    }
+
+    let mut out = PathBuf::new();
+    for c in full_it {
+        match c {
+            Component::Normal(s) => out.push(s),
+            Component::CurDir => out.push("."),
+            Component::ParentDir => out.push(".."),
+            Component::RootDir => out.push(Path::new("/")),
+            Component::Prefix(p) => out.push(p.as_os_str()),
+        }
+    }
+    out
+}
+
 fn get_callsite(event: Event) -> Option<&'static Metadata<'static>> {
     let (level, kind) = match event.kind {
         Kind::Message(level) => (level, tracing::metadata::Kind::EVENT),
@@ -111,13 +137,23 @@ fn get_callsite(event: Event) -> Option<&'static Metadata<'static>> {
                 tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::SPAN, fields: &[])
             };
 
-            // let file = event.file.map(|f| Box::leak(f.into_boxed_str()));
+            let file: Option<&'static str> = if let Some(ref file) = event.file {
+                let path = Path::new(&file);
+                let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+                let rel = strip_matching_prefix_components(path, manifest)
+                    .to_string_lossy()
+                    .to_string();
+
+                Some(Box::leak(rel.into_boxed_str()) as &'static str)
+            } else {
+                None
+            };
 
             let meta = Box::leak(Box::new(Metadata::new(
                 leaked_content,
                 TARGET,
                 level,
-                None,
+                file,
                 event.line,
                 None,
                 tracing::field::FieldSet::new(

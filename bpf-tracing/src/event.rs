@@ -22,6 +22,7 @@ pub enum ParseError {
     InvalidLog,
     InvalidLevel,
     InvalidCpu,
+    InvalidLine,
 }
 
 impl FromStr for Event {
@@ -58,6 +59,19 @@ impl FromStr for Event {
         };
 
         let mut content = s[level_idx + 1..].trim().to_string();
+        let (level, file, line) = if let Some((level, loc)) = level.split_once('|') {
+            if let Some((file, line)) = loc.rsplit_once(':') {
+                if let Some(line) = line.parse::<u32>().ok() {
+                    (level, Some(file.to_string()), Some(line))
+                } else {
+                    return Err(ParseError::InvalidLine);
+                }
+            } else {
+                return Err(ParseError::InvalidLine);
+            }
+        } else {
+            (level, None, None)
+        };
 
         let kind = if &level[0..1] == "<" {
             content = level[1..].trim().to_string();
@@ -80,8 +94,8 @@ impl FromStr for Event {
             kind,
             content,
             cpu,
-            file: None,
-            line: None,
+            file,
+            line,
         })
     }
 }
@@ -128,5 +142,19 @@ mod tests {
         assert_eq!(event.kind, Kind::EndSpan);
         assert_eq!(event.content, String::from("test_start"));
         assert_eq!(event.cpu, 12);
+    }
+
+    #[test]
+    fn parse_source_loc() {
+        let log = "<...>-386819  [007] ...11 763164.439561: bpf_trace_printk: [INFO|projs/bpf-tracing/example/src/monitor.bpf.c:34] sockops";
+        let event: Event = log.parse().expect("parse");
+        assert_eq!(event.kind, Kind::Message(Level::INFO));
+        assert_eq!(
+            event.file,
+            Some(String::from("projs/bpf-tracing/example/src/monitor.bpf.c"))
+        );
+        assert_eq!(event.line, Some(34));
+        assert_eq!(event.content, String::from("sockops"));
+        assert_eq!(event.cpu, 7);
     }
 }
