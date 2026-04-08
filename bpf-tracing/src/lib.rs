@@ -250,6 +250,10 @@ mod tests {
 
     #[test]
     fn leaks_one_callsite_per_level_and_kind() {
+        fn callsite_len() -> usize {
+            CALLSITES.with_borrow(|cs| cs.len())
+        }
+
         let event_msg_info1 = Event {
             kind: Kind::Message(Level::INFO),
             content: "event 1".to_string(),
@@ -266,9 +270,9 @@ mod tests {
             line: None,
         };
 
-        let callsite1 = get_callsite(event_msg_info1.try_into().unwrap());
-        let callsite2 = get_callsite(event_msg_info2.try_into().unwrap());
-        assert_eq!(callsite1, callsite2);
+        let _callsite1 = get_callsite(event_msg_info1.try_into().unwrap());
+        let _callsite2 = get_callsite(event_msg_info2.try_into().unwrap());
+        assert_eq!(callsite_len(), 1);
 
         let event_span_info3 = Event {
             kind: Kind::StartSpan(Level::INFO),
@@ -277,8 +281,8 @@ mod tests {
             file: None,
             line: None,
         };
-        let callsite3 = get_callsite(event_span_info3.try_into().unwrap());
-        assert_ne!(callsite1, callsite3);
+        let _callsite3 = get_callsite(event_span_info3.try_into().unwrap());
+        assert_eq!(callsite_len(), 2);
 
         let event_span_info4 = Event {
             kind: Kind::StartSpan(Level::INFO),
@@ -287,8 +291,8 @@ mod tests {
             file: Some(String::from("this/is/a/test_file.rs")),
             line: Some(12),
         };
-        let callsite4 = get_callsite(event_span_info4.try_into().unwrap());
-        assert_ne!(callsite3, callsite4);
+        let _callsite4 = get_callsite(event_span_info4.try_into().unwrap());
+        assert_eq!(callsite_len(), 3);
 
         let event_span_info5 = Event {
             kind: Kind::StartSpan(Level::INFO),
@@ -297,7 +301,7 @@ mod tests {
             file: Some(String::from("this/is/a/test_file.rs")),
             line: Some(12),
         };
-        let callsite5 = get_callsite(event_span_info5.try_into().unwrap());
-        assert_eq!(callsite4, callsite5);
+        let _callsite5 = get_callsite(event_span_info5.try_into().unwrap());
+        assert_eq!(callsite_len(), 3);
     }
 }
