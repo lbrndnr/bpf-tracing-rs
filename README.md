@@ -1,4 +1,8 @@
-# bpf-tracing
+# bpf-tracing: Rich diagnostics for eBPF
+
+[![Crates.io][https://img.shields.io/crates/v/bpf-tracing.svg]][https://crates.io/crates/bpf-tracing]
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
+[![Build Status][https://github.com/lbrndnr/bpf-tracing-rs/workflows/CI/badge.svg]][https://github.com/lbrndnr/bpf-tracing-rs/actions?query=workflow%3ACI]
 
 This is a tracing facility for eBPF that produces rich, event-based diagnostic information. Similar to [bpftool](https://github.com/libbpf/bpftool), it reads the kernel's tracefs file system, parses the logs and emits them conveniently using the [tracing](https://crates.io/crates/tracing) crate. 
 
