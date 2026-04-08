@@ -1,4 +1,4 @@
-use crate::event::{Event, Kind};
+use crate::event::{CallsiteKey, Event, Kind};
 use nix::sys::statfs::{FsType, statfs};
 use std::{
     cell::RefCell,
@@ -17,7 +17,7 @@ const TARGET: &str = "bpf";
 type Spans = Vec<VecDeque<(String, EnteredSpan)>>;
 
 thread_local! {
-    static CALLSITES: RefCell<HashMap<Event, &'static Metadata<'static>>> = RefCell::new(HashMap::new());
+    static CALLSITES: RefCell<HashMap<CallsiteKey, &'static Metadata<'static>>> = RefCell::new(HashMap::new());
     static SPANS: RefCell<Spans> = {
         let cpus = thread::available_parallelism().unwrap().get();
         let mut spans: Spans = Vec::new();
@@ -118,24 +118,20 @@ fn strip_matching_prefix_components(full: &Path, base: &Path) -> PathBuf {
     out
 }
 
-fn get_callsite(event: Event) -> Option<&'static Metadata<'static>> {
-    let (level, kind) = match event.kind {
-        Kind::Message(level) => (level, tracing::metadata::Kind::EVENT),
-        Kind::StartSpan(level) => (level, tracing::metadata::Kind::SPAN),
-        Kind::EndSpan => return None,
-    };
-
+fn get_callsite(key: CallsiteKey) -> &'static Metadata<'static> {
     CALLSITES.with_borrow_mut(|cs| {
-        if let Some(meta) = cs.get(&event) {
-            Some(*meta)
+        if let Some(meta) = cs.get(&key) {
+            *meta
         } else {
-            let callsite = if kind == tracing::metadata::Kind::EVENT {
+            let (file, line, is_span, level) = key;
+
+            let callsite = if is_span {
                 tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::EVENT, fields: &[])
             } else {
                 tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::SPAN, fields: &[])
             };
 
-            let file: Option<&'static str> = if let Some(ref file) = event.file {
+            let static_file: Option<&'static str> = if let Some(ref file) = file {
                 let path = Path::new(&file);
                 let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
                 let rel = strip_matching_prefix_components(path, manifest)
@@ -151,19 +147,25 @@ fn get_callsite(event: Event) -> Option<&'static Metadata<'static>> {
                 "",
                 TARGET,
                 level,
-                file,
-                event.line,
+                static_file,
+                line,
                 None,
                 tracing::field::FieldSet::new(
                     &["message"],
                     tracing::callsite::Identifier(callsite),
                 ),
-                kind,
+                if is_span {
+                    tracing::metadata::Kind::SPAN
+                } else {
+                    tracing::metadata::Kind::EVENT
+                },
             )));
-            cs.insert(event, meta);
+
+            let key = (file, line, is_span, level);
+            cs.insert(key, meta);
 
             let meta: &'static Metadata = meta;
-            Some(meta)
+            meta
         }
     })
 }
@@ -173,7 +175,7 @@ fn emit(event: Event) {
     SPANS.with_borrow_mut(|spans| match &event.kind {
         Kind::Message(_) => {
             let content = event.content.clone();
-            let meta = get_callsite(event).expect("callsite");
+            let meta = get_callsite(event.try_into().unwrap());
             let parent = spans[cpu].back().and_then(|(_, p)| p.id());
 
             tracing::Event::child_of(
@@ -184,7 +186,7 @@ fn emit(event: Event) {
         }
         Kind::StartSpan(_) => {
             let content = event.content.clone();
-            let meta = get_callsite(event).expect("callsite");
+            let meta = get_callsite(event.try_into().unwrap());
             let parent = spans[cpu].back().and_then(|(_, p)| p.id());
 
             let span = tracing::Span::child_of(
@@ -207,6 +209,8 @@ fn emit(event: Event) {
 
 #[cfg(test)]
 mod tests {
+    use tracing::Level;
+
     use super::*;
     use std::{io::Write, sync::mpsc, thread::sleep, time::Duration};
 
@@ -242,5 +246,58 @@ mod tests {
 
         assert_eq!(rx.recv().unwrap(), "hello".to_string());
         assert_eq!(rx.recv().unwrap(), "world".to_string());
+    }
+
+    #[test]
+    fn leaks_one_callsite_per_level_and_kind() {
+        let event_msg_info1 = Event {
+            kind: Kind::Message(Level::INFO),
+            content: "event 1".to_string(),
+            cpu: 1,
+            file: None,
+            line: None,
+        };
+
+        let event_msg_info2 = Event {
+            kind: Kind::Message(Level::INFO),
+            content: "event 2".to_string(),
+            cpu: 9,
+            file: None,
+            line: None,
+        };
+
+        let callsite1 = get_callsite(event_msg_info1.try_into().unwrap());
+        let callsite2 = get_callsite(event_msg_info2.try_into().unwrap());
+        assert_eq!(callsite1, callsite2);
+
+        let event_span_info3 = Event {
+            kind: Kind::StartSpan(Level::INFO),
+            content: "event 3".to_string(),
+            cpu: 29,
+            file: None,
+            line: None,
+        };
+        let callsite3 = get_callsite(event_span_info3.try_into().unwrap());
+        assert_ne!(callsite1, callsite3);
+
+        let event_span_info4 = Event {
+            kind: Kind::StartSpan(Level::INFO),
+            content: "event 4".to_string(),
+            cpu: 29,
+            file: Some(String::from("this/is/a/test_file.rs")),
+            line: Some(12),
+        };
+        let callsite4 = get_callsite(event_span_info4.try_into().unwrap());
+        assert_ne!(callsite3, callsite4);
+
+        let event_span_info5 = Event {
+            kind: Kind::StartSpan(Level::INFO),
+            content: "event 5".to_string(),
+            cpu: 29,
+            file: Some(String::from("this/is/a/test_file.rs")),
+            line: Some(12),
+        };
+        let callsite5 = get_callsite(event_span_info5.try_into().unwrap());
+        assert_eq!(callsite4, callsite5);
     }
 }
