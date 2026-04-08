@@ -95,7 +95,6 @@ dependencies = [
  "nix",
  "tempfile",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
