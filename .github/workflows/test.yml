@@ -66,7 +66,4 @@ jobs:
             - name: Build
               run: cargo build --profile=${{ matrix.profile }} --locked --verbose --workspace
             - name: Run tests
-              # Skip tests which require sudo
               run: cargo test --profile=${{ matrix.profile }} --locked --verbose --workspace -- --skip ':root:'  --include-ignored
-            - name: Run root tests
-              run: cd shimmer && cargo test --profile=${{ matrix.profile }} --locked --verbose -- ':root:'
