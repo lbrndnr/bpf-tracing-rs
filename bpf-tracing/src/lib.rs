@@ -28,6 +28,12 @@ thread_local! {
     };
 }
 
+/// Initializes a tracefs reader that continuously observes and
+/// emits tracing events.
+///
+/// # Errors
+/// Returns an Error if the `trace_pipe` file cannot be opened
+/// or found.
 pub fn try_init() -> io::Result<JoinHandle<()>> {
     let pipe = get_trace_pipe()?;
 

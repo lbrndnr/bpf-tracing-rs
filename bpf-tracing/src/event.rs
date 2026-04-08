@@ -2,7 +2,7 @@ use std::str::FromStr;
 use tracing::{self, Level};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Event {
+pub(crate) struct Event {
     pub kind: Kind,
     pub content: String,
     pub cpu: usize,
@@ -11,14 +11,14 @@ pub struct Event {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Kind {
+pub(crate) enum Kind {
     Message(Level),
     StartSpan(Level),
     EndSpan,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParseError {
+pub(crate) enum ParseError {
     InvalidLog,
     InvalidLevel,
     InvalidCpu,
@@ -99,7 +99,7 @@ impl FromStr for Event {
     }
 }
 
-pub type CallsiteKey = (Option<String>, Option<u32>, bool, tracing::metadata::Level);
+pub(crate) type CallsiteKey = (Option<String>, Option<u32>, bool, tracing::metadata::Level);
 
 impl TryFrom<Event> for CallsiteKey {
     type Error = ();
