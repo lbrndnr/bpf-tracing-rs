@@ -8,7 +8,7 @@ publish = false
 anyhow = "1.0.102"
 bpf-tracing = { path = "../bpf-tracing", version = "0.0.1" }
 libbpf-rs = "0.26.1"
-libc = "0.2.182"
+libc = "0.2.184"
 tempfile = "3.27.0"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
