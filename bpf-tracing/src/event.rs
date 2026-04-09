@@ -58,7 +58,6 @@ impl FromStr for Event {
             return Err(ParseError::InvalidCpu);
         };
 
-        let content = s[level_idx + 2..].to_string();
         let (level, file, line) = if let Some((level, loc)) = level.split_once('|') {
             if let Some((file, line)) = loc.rsplit_once(':') {
                 if let Some(line) = line.parse::<u32>().ok() {
@@ -87,6 +86,12 @@ impl FromStr for Event {
                 };
                 Kind::Message(level)
             }
+        };
+
+        let content = if s.len() <= level_idx + 2 {
+            String::new()
+        } else {
+            s[level_idx + 2..].to_string()
         };
 
         Ok(Event {
@@ -173,5 +178,11 @@ mod tests {
         assert_eq!(event.line, Some(34));
         assert_eq!(event.content, String::from("sockops"));
         assert_eq!(event.cpu, 3);
+    }
+
+    #[test]
+    fn try_parse_plain_log() {
+        let log = "asdfqwer-926693  [007] ...11 681876.746781: bpf_trace_printk: Established socket [127.0.0.1:51914->127.0.0.1:12345]";
+        assert!(log.parse::<Event>().is_err());
     }
 }
