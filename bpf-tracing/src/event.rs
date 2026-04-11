@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 use tracing::{self, Level};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -8,6 +8,7 @@ pub(crate) struct Event {
     pub cpu: usize,
     pub file: Option<String>,
     pub line: Option<u32>,
+    pub time_since_boot: Duration,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -18,18 +19,13 @@ pub(crate) enum Kind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ParseError {
-    InvalidLog,
-    InvalidLevel,
-    InvalidCpu,
-    InvalidLine,
-}
+pub(crate) struct ParseError(String);
 
 impl FromStr for Event {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        const MARKER: &str = "bpf_trace_printk:";
+        let mut comps = s.splitn(5, char::is_whitespace);
 
         fn extract(lhs: char, rhs: char, s: &str) -> Option<(usize, &str)> {
             let Some(l) = s.find(lhs) else { return None };
@@ -40,22 +36,25 @@ impl FromStr for Event {
             Some((r, &s[l + 1..r]))
         }
 
-        let Some((cpu_idx, cpu)) = extract('[', ']', s) else {
-            return Err(ParseError::InvalidCpu);
+        let Some(cpu) = comps
+            .nth(1)
+            .and_then(|c| c.strip_prefix('['))
+            .and_then(|c| c.strip_suffix(']'))
+        else {
+            return Err(ParseError(s.to_string()));
         };
 
-        let Some(msg_idx) = s[cpu_idx..].find(MARKER) else {
-            return Err(ParseError::InvalidLog);
+        let Some(time_since_boot) = comps.nth(1).and_then(|c| c.strip_suffix(':')) else {
+            return Err(ParseError(s.to_string()));
         };
-        let msg_idx = cpu_idx + msg_idx;
 
-        let Some((level_idx, level)) = extract('[', ']', &s[msg_idx..]) else {
-            return Err(ParseError::InvalidLevel);
+        const MARKER: &str = "bpf_trace_printk: ";
+        let Some(msg) = comps.next().and_then(|c| c.strip_prefix(MARKER)) else {
+            return Err(ParseError(s.to_string()));
         };
-        let level_idx = level_idx + msg_idx;
 
-        let Ok(cpu) = cpu.parse() else {
-            return Err(ParseError::InvalidCpu);
+        let Some((level_idx, level)) = extract('[', ']', &msg) else {
+            return Err(ParseError(s.to_string()));
         };
 
         let (level, file, line) = if let Some((level, loc)) = level.split_once('|') {
@@ -63,10 +62,10 @@ impl FromStr for Event {
                 if let Some(line) = line.parse::<u32>().ok() {
                     (level, Some(file.to_string()), Some(line))
                 } else {
-                    return Err(ParseError::InvalidLine);
+                    return Err(ParseError(s.to_string()));
                 }
             } else {
-                return Err(ParseError::InvalidLine);
+                return Err(ParseError(s.to_string()));
             }
         } else {
             (level, None, None)
@@ -77,22 +76,26 @@ impl FromStr for Event {
         } else {
             if &level[0..1] == ">" {
                 let Ok(level) = Level::from_str(&level[1..]) else {
-                    return Err(ParseError::InvalidLevel);
+                    return Err(ParseError(s.to_string()));
                 };
                 Kind::StartSpan(level)
             } else {
                 let Ok(level) = Level::from_str(level) else {
-                    return Err(ParseError::InvalidLevel);
+                    return Err(ParseError(s.to_string()));
                 };
                 Kind::Message(level)
             }
         };
 
-        let content = if s.len() <= level_idx + 2 {
-            String::new()
-        } else {
-            s[level_idx + 2..].to_string()
-        };
+        let content = msg[level_idx + 2..].to_string();
+        let cpu = cpu
+            .parse::<usize>()
+            .map_err(|_| ParseError(s.to_string()))?;
+
+        let time_since_boot = time_since_boot
+            .parse::<f64>()
+            .map_err(|_| ParseError(s.to_string()))?;
+        let time_since_boot = Duration::from_secs_f64(time_since_boot);
 
         Ok(Event {
             kind,
@@ -100,6 +103,7 @@ impl FromStr for Event {
             cpu,
             file,
             line,
+            time_since_boot,
         })
     }
 }
@@ -182,7 +186,7 @@ mod tests {
 
     #[test]
     fn try_parse_plain_log() {
-        let log = "asdfqwer-926693  [007] ...11 681876.746781: bpf_trace_printk: Established socket [127.0.0.1:51914->127.0.0.1:12345]";
+        let log = "asdfqwer-926693 [007] ...11 681876.746781: bpf_trace_printk: Established socket [127.0.0.1:51914->127.0.0.1:12345]";
         assert!(log.parse::<Event>().is_err());
     }
 }

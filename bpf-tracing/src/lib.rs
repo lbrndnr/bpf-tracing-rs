@@ -266,6 +266,7 @@ mod tests {
             cpu: 1,
             file: None,
             line: None,
+            time_since_boot: Duration::from_secs(1),
         };
 
         let event_msg_info2 = Event {
@@ -274,6 +275,7 @@ mod tests {
             cpu: 9,
             file: None,
             line: None,
+            time_since_boot: Duration::from_secs(1),
         };
 
         let _callsite1 = get_callsite(event_msg_info1.try_into().unwrap());
@@ -286,6 +288,7 @@ mod tests {
             cpu: 29,
             file: None,
             line: None,
+            time_since_boot: Duration::from_secs(1),
         };
         let _callsite3 = get_callsite(event_span_info3.try_into().unwrap());
         assert_eq!(callsite_len(), 2);
@@ -296,6 +299,7 @@ mod tests {
             cpu: 29,
             file: Some(String::from("this/is/a/test_file.rs")),
             line: Some(12),
+            time_since_boot: Duration::from_secs(1),
         };
         let _callsite4 = get_callsite(event_span_info4.try_into().unwrap());
         assert_eq!(callsite_len(), 3);
@@ -306,6 +310,7 @@ mod tests {
             cpu: 29,
             file: Some(String::from("this/is/a/test_file.rs")),
             line: Some(12),
+            time_since_boot: Duration::from_secs(1),
         };
         let _callsite5 = get_callsite(event_span_info5.try_into().unwrap());
         assert_eq!(callsite_len(), 3);
