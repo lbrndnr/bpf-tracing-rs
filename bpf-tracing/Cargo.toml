@@ -1,6 +1,6 @@
 [package]
 name = "bpf-tracing"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2024"
 description = "An eBPF tracing facility that integrates neatly into Rust's tracing"
 license.workspace = true
