@@ -1,4 +1,4 @@
-use std::{str::FromStr, time::Duration};
+use std::{fmt::Display, str::FromStr, time::Duration};
 use tracing::{self, Level};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -19,14 +19,30 @@ pub(crate) enum Kind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ParseError(String);
+pub(crate) enum ParseError {
+    InvalidCpu,
+    InvalidTime,
+    InvalidLevel,
+    InvalidFormat,
+    UnstructuredLog,
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::InvalidCpu => write!(f, "invalid cpu"),
+            ParseError::InvalidTime => write!(f, "invalid time"),
+            ParseError::InvalidLevel => write!(f, "invalid level"),
+            ParseError::InvalidFormat => write!(f, "invalid format"),
+            ParseError::UnstructuredLog => write!(f, "unstructured log"),
+        }
+    }
+}
 
 impl FromStr for Event {
     type Err = ParseError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut comps = s.splitn(5, char::is_whitespace);
-
+    fn from_str(mut s: &str) -> Result<Self, Self::Err> {
         fn extract(lhs: char, rhs: char, s: &str) -> Option<(usize, &str)> {
             let Some(l) = s.find(lhs) else { return None };
             let Some(r) = s[l + 1..].find(rhs) else {
@@ -36,25 +52,38 @@ impl FromStr for Event {
             Some((r, &s[l + 1..r]))
         }
 
-        let Some(cpu) = comps
-            .nth(1)
+        let mut nth = |mut idx: usize| {
+            while let Some((prefix, rest)) = s.split_once(char::is_whitespace) {
+                s = rest;
+
+                if idx == 0 && prefix.len() > 0 {
+                    return Some(prefix);
+                }
+
+                idx = idx.saturating_sub(1);
+            }
+
+            None
+        };
+
+        let Some(cpu) = nth(1)
             .and_then(|c| c.strip_prefix('['))
             .and_then(|c| c.strip_suffix(']'))
         else {
-            return Err(ParseError(s.to_string()));
+            return Err(ParseError::InvalidFormat);
         };
 
-        let Some(time_since_boot) = comps.nth(1).and_then(|c| c.strip_suffix(':')) else {
-            return Err(ParseError(s.to_string()));
+        let Some(time_since_boot) = nth(1).and_then(|c| c.strip_suffix(':')) else {
+            return Err(ParseError::InvalidFormat);
         };
 
         const MARKER: &str = "bpf_trace_printk: ";
-        let Some(msg) = comps.next().and_then(|c| c.strip_prefix(MARKER)) else {
-            return Err(ParseError(s.to_string()));
+        let Some(msg) = s.strip_prefix(MARKER) else {
+            return Err(ParseError::InvalidFormat);
         };
 
         let Some((level_idx, level)) = extract('[', ']', &msg) else {
-            return Err(ParseError(s.to_string()));
+            return Err(ParseError::UnstructuredLog);
         };
 
         let (level, file, line) = if let Some((level, loc)) = level.split_once('|') {
@@ -62,10 +91,10 @@ impl FromStr for Event {
                 if let Some(line) = line.parse::<u32>().ok() {
                     (level, Some(file.to_string()), Some(line))
                 } else {
-                    return Err(ParseError(s.to_string()));
+                    return Err(ParseError::InvalidLevel);
                 }
             } else {
-                return Err(ParseError(s.to_string()));
+                return Err(ParseError::InvalidLevel);
             }
         } else {
             (level, None, None)
@@ -76,25 +105,23 @@ impl FromStr for Event {
         } else {
             if &level[0..1] == ">" {
                 let Ok(level) = Level::from_str(&level[1..]) else {
-                    return Err(ParseError(s.to_string()));
+                    return Err(ParseError::InvalidLevel);
                 };
                 Kind::StartSpan(level)
             } else {
                 let Ok(level) = Level::from_str(level) else {
-                    return Err(ParseError(s.to_string()));
+                    return Err(ParseError::InvalidLevel);
                 };
                 Kind::Message(level)
             }
         };
 
         let content = msg[level_idx + 2..].to_string();
-        let cpu = cpu
-            .parse::<usize>()
-            .map_err(|_| ParseError(s.to_string()))?;
+        let cpu = cpu.parse::<usize>().map_err(|_| ParseError::InvalidCpu)?;
 
         let time_since_boot = time_since_boot
             .parse::<f64>()
-            .map_err(|_| ParseError(s.to_string()))?;
+            .map_err(|_| ParseError::InvalidTime)?;
         let time_since_boot = Duration::from_secs_f64(time_since_boot);
 
         Ok(Event {
@@ -137,7 +164,7 @@ mod tests {
         let file = file.map(|f| format!("|{f}")).unwrap_or_default();
         let line = line.map(|l| format!(":{l}")).unwrap_or_default();
         format!(
-            "packets-149149 [{cpu:03}] ...11 78517.088267: bpf_trace_printk: [{span}{level}{file}{line}] {content}"
+            "packets-149149   [{cpu:03}] ...11 78517.088267: bpf_trace_printk: [{span}{level}{file}{line}] {content}"
         )
     }
 
