@@ -1,35 +1,60 @@
 use std::{env, ffi::OsString, path::Path};
-use tracing::{Level, metadata::ParseLevelError};
+use tracing::level_filters::{LevelFilter, ParseLevelFilterError};
+
+fn level_filter_from_env(
+    var: Result<String, std::env::VarError>,
+) -> Result<LevelFilter, ParseLevelFilterError> {
+    // if the env var is missing, i.e. var is var error,
+    // the we can safely return the off filter level
+    match var {
+        Ok(v) => v.parse(),
+        Err(_) => Ok(LevelFilter::OFF),
+    }
+}
 
 /// Returns the clang arguments used to compile an eBPF program with bpf-tracing.
 /// The vector contains the path to the include directory along with other clang
-/// definitions. The log level is determined from the `BPF_LOG` or `RUST_LOG`
+/// definitions. The log level is determined by the `BPF_LOG` or `RUST_LOG`
 /// environment variables. If `source_loc` is `true`, tracing messages will
 /// include source location information.
 #[inline]
-pub fn clang_args_from_env(source_loc: bool) -> Vec<OsString> {
-    let level = std::env::var("BPF_LOG")
-        .or(std::env::var("RUST_LOG"))
-        .map_err(|e| e.to_string())
-        .and_then(|v| v.parse().map_err(|e: ParseLevelError| e.to_string()))
-        .ok();
-
+pub fn clang_args_from_default_env(
+    source_loc: bool,
+) -> Result<Vec<OsString>, ParseLevelFilterError> {
     println!("cargo:rerun-if-env-changed=RUST_LOG");
     println!("cargo:rerun-if-env-changed=BPF_LOG");
 
-    clang_args(level, source_loc)
+    let level = std::env::var("BPF_LOG").or(std::env::var("RUST_LOG"));
+    let level = level_filter_from_env(level)?;
+
+    Ok(clang_args(level, source_loc))
 }
 
-/// Similar to [`clang_args_from_env`], but takes an explicit [`Level`].
-pub fn clang_args(level: Option<Level>, source_loc: bool) -> Vec<OsString> {
+/// Similar to [`clang_args_from_default_env`], but takes the name of the environment
+/// variable that determines the log level.
+#[inline]
+pub fn clang_args_from_env(
+    env_var: &str,
+    source_loc: bool,
+) -> Result<Vec<OsString>, ParseLevelFilterError> {
+    println!("cargo:rerun-if-env-changed={env_var}");
+
+    let level = std::env::var(env_var);
+    let level = level_filter_from_env(level)?;
+
+    Ok(clang_args(level, source_loc))
+}
+
+/// Similar to [`clang_args_from_default_env`], but takes an explicit log [`LevelFilter`].
+pub fn clang_args(level: LevelFilter, source_loc: bool) -> Vec<OsString> {
     let mut args = vec![OsString::from("-I"), OsString::from(include_path_root())];
     let log_level = match level {
-        Some(Level::ERROR) => 1,
-        Some(Level::WARN) => 2,
-        Some(Level::INFO) => 3,
-        Some(Level::DEBUG) => 4,
-        Some(Level::TRACE) => 5,
-        _ => 0,
+        LevelFilter::ERROR => 1,
+        LevelFilter::WARN => 2,
+        LevelFilter::INFO => 3,
+        LevelFilter::DEBUG => 4,
+        LevelFilter::TRACE => 5,
+        LevelFilter::OFF => 0,
     };
     if log_level == 0 {
         return args;
@@ -45,7 +70,7 @@ pub fn clang_args(level: Option<Level>, source_loc: bool) -> Vec<OsString> {
 }
 
 /// Returns the root path of the include directory. Note that arguments returned
-/// by [`clang_args_from_env`] and [`clang_args`] already contain this path.
+/// by [`clang_args_from_default_env`] and [`clang_args`] already contain this path.
 #[inline]
 pub fn include_path_root() -> OsString {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("include");
