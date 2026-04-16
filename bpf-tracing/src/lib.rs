@@ -192,28 +192,32 @@ fn get_callsite(key: CallsiteKey) -> &'static Metadata<'static> {
 fn emit(event: Event) {
     let cpu = event.cpu;
     SPANS.with_borrow_mut(|spans| match &event.kind {
-        Kind::Message(_) => {
-            let content = event.content.clone();
-            let meta = get_callsite(event.try_into().unwrap());
-            let parent = spans[cpu].back().and_then(|(_, p)| p.id());
+        Kind::Message(lvl) => {
+            if *lvl <= tracing::metadata::LevelFilter::current() {
+                let content = event.content.clone();
+                let meta = get_callsite(event.try_into().unwrap());
+                let parent = spans[cpu].back().and_then(|(_, p)| p.id());
 
-            tracing::Event::child_of(
-                parent,
-                meta,
-                &tracing::valueset_all!(meta.fields(), "{}", content),
-            );
+                tracing::Event::child_of(
+                    parent,
+                    meta,
+                    &tracing::valueset_all!(meta.fields(), "{}", content),
+                );
+            }
         }
-        Kind::StartSpan(_) => {
-            let content = event.content.clone();
-            let meta = get_callsite(event.try_into().unwrap());
-            let parent = spans[cpu].back().and_then(|(_, p)| p.id());
+        Kind::StartSpan(lvl) => {
+            if *lvl <= tracing::metadata::LevelFilter::current() {
+                let content = event.content.clone();
+                let meta = get_callsite(event.try_into().unwrap());
+                let parent = spans[cpu].back().and_then(|(_, p)| p.id());
 
-            let span = tracing::Span::child_of(
-                parent,
-                meta,
-                &tracing::valueset_all!(meta.fields(), "{}", content),
-            );
-            spans[cpu].push_back((content, span.entered()));
+                let span = tracing::Span::child_of(
+                    parent,
+                    meta,
+                    &tracing::valueset_all!(meta.fields(), "{}", content),
+                );
+                spans[cpu].push_back((content, span.entered()));
+            }
         }
         Kind::EndSpan => {
             let content = event.content;
