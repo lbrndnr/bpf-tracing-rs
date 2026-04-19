@@ -1,13 +1,13 @@
 # bpf-tracing: Rich diagnostics for eBPF
 
 [![Crates.io][crates-badge]][crates-url]
-[![GPL v3 licensed][gpl-badge]][gpl-url]
+[![MIT licensed][mit-badge]][mit-url]
 [![Build Status][actions-badge]][actions-url]
 
 [crates-badge]: https://img.shields.io/crates/v/bpf-tracing.svg
 [crates-url]: https://crates.io/crates/bpf-tracing
-[gpl-badge]: https://img.shields.io/badge/License-GPL%20v3-blue.svg
-[gpl-url]: LICENSE
+[mit-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+[mit-url]: LICENSE
 [actions-badge]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/CI.yml/badge.svg
 [actions-url]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/CI.yml
 
@@ -61,4 +61,4 @@ bpf_tracing::try_init()?;
 ```
 
 ## License
-This project is licensed under the [GPL-3.0 license](LICENSE).
+This project is licensed under the [MIT license](LICENSE).
