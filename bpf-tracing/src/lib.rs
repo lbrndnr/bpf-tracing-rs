@@ -237,7 +237,7 @@ mod tests {
     use super::*;
     use std::{io::Write, sync::mpsc, thread::sleep, time::Duration};
 
-    const TEST_INTERVAL: Duration = Duration::from_millis(100);
+    const TEST_INTERVAL: Duration = Duration::from_millis(500);
 
     #[test]
     fn observe_nonexistent_file() {
