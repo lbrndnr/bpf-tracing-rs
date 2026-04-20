@@ -18,10 +18,10 @@ This is a tracing facility for eBPF that produces rich, event-based diagnostic i
 To use `bpf-tracing`, add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
-bpf-tracing = "0.0.1"
+bpf-tracing = "0.0.4"
 
 [build-dependencies]
-bpf-tracing-include = "0.0.2"
+bpf-tracing-include = "0.0.4"
 ```
 
 Next, in your `build.rs` script, provide the `bpf_tracing_include` arguments to clang as follows:
