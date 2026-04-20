@@ -42,7 +42,7 @@ impl Display for ParseError {
 impl FromStr for Event {
     type Err = ParseError;
 
-    fn from_str(mut s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         fn extract(lhs: char, rhs: char, s: &str) -> Option<(usize, &str)> {
             let Some(l) = s.find(lhs) else { return None };
             let Some(r) = s[l + 1..].find(rhs) else {
@@ -51,6 +51,8 @@ impl FromStr for Event {
             let r = l + 1 + r;
             Some((r, &s[l + 1..r]))
         }
+
+        let mut s = s.trim_start();
 
         let mut nth = |mut idx: usize| {
             while let Some((prefix, rest)) = s.split_once(char::is_whitespace) {
@@ -164,7 +166,7 @@ mod tests {
         let file = file.map(|f| format!("|{f}")).unwrap_or_default();
         let line = line.map(|l| format!(":{l}")).unwrap_or_default();
         format!(
-            "packets-149149   [{cpu:03}] ...11 78517.088267: bpf_trace_printk: [{span}{level}{file}{line}] {content}"
+            "            <...>-445247   [{cpu:03}] ...11 78517.088267: bpf_trace_printk: [{span}{level}{file}{line}] {content}"
         )
     }
 

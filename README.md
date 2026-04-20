@@ -60,5 +60,14 @@ Finally, in your Rust program, you'll have to enable `bpf-tracing`. It then star
 bpf_tracing::try_init()?;
 ```
 
+This will yield the following trace:
+```
+2026-04-20T13:23:27.545062Z  INFO bpf: example/src/monitor.bpf.c:34: sockops
+2026-04-20T13:23:27.545166Z  INFO bpf: example/src/monitor.bpf.c:50: Established socket [127.0.0.1:34812->127.0.0.1:9999]
+2026-04-20T13:23:27.545239Z  INFO bpf: example/src/monitor.bpf.c:60: Add socket [127.0.0.1:34812->127.0.0.1:9999]
+2026-04-20T13:23:27.545345Z  INFO bpf: example/src/monitor.bpf.c:34: sockops
+2026-04-20T13:23:27.545450Z  INFO bpf: example/src/monitor.bpf.c:50: Established socket [127.0.0.1:9999->127.0.0.1:34812]
+```
+
 ## License
 This project is licensed under the [MIT license](LICENSE).

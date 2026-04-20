@@ -87,10 +87,10 @@ fn trace_events<P: AsRef<Path>>(
 
     observe(path, move |val| {
         if let Ok(event) = val.parse::<Event>() {
-            if event.time_since_boot > start_time {
-                callback(event);
-            }
+            // if event.time_since_boot > start_time {
+            callback(event);
         }
+        // }
     })
 }
 
