@@ -8,6 +8,6 @@ publish=false
 [dependencies]
 anyhow = "1.0.102"
 bpf-tracing = { path = "../bpf-tracing" }
-clap = "4.6.0"
+clap = "4.6.1"
 signal-hook = "0.4.4"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
