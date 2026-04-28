@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["bpf-tracing", "bpf-tracing-include", "bpflog", "example"]
+members = ["bpf-tracing", "bpf-tracing-include", "example"]
 
 [workspace.package]
 license = "MIT"
