@@ -1,4 +1,5 @@
 use crate::event::{CallsiteKey, Event, Kind};
+use libbpf_rs::{MapCore, MapHandle};
 use nix::sys::statfs::{FsType, statfs};
 use std::{
     cell::RefCell,
@@ -34,9 +35,57 @@ thread_local! {
 /// # Errors
 /// Returns an Error if the `trace_pipe` file cannot be opened
 /// or found.
-pub fn try_init() -> io::Result<JoinHandle<()>> {
-    let pipe = get_trace_pipe()?;
-    trace_events(&pipe, emit)
+pub fn try_init(obj: &libbpf_rs::Object) -> libbpf_rs::Result<()> {
+    let mut builder = libbpf_rs::RingBufferBuilder::new();
+    let mut events: Option<MapHandle> = None;
+
+    for map in obj.maps() {
+        let name = map.name().to_str().ok_or_else(|| {
+            libbpf_rs::Error::from(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "map has invalid name",
+            ))
+        })?;
+
+        if name == "bpf_tracing_events" {
+            let map_id = map.info()?.info.id;
+            events = Some(MapHandle::from_map_id(map_id)?);
+        }
+    }
+
+    let Some(events) = events else {
+        return Err(libbpf_rs::Error::from(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "map has invalid name",
+        )));
+    };
+
+    builder.add(&events, |ev| process(ev)).unwrap();
+    let ringbuf = builder.build().unwrap();
+
+    Ok(())
+
+    // tokio::spawn(async move {
+    //     trace!("Polling...");
+    //     loop {
+    //         if let Err(e) = ringbuf.poll(Duration::from_millis(100)) {
+    //             error!("Failed to poll ring buffer: {}", e);
+    //         }
+
+    //         tokio::time::sleep(Duration::from_millis(100)).await;
+    //     }
+    // });
+
+    // let pipe = get_trace_pipe()?;
+    // trace_events(&pipe, emit)
+}
+
+fn process(ev: &[u8]) -> i32 {
+    // let Ok(ev) = plain::from_bytes::<types::event_io>(ev) else {
+    //     return -1;
+    // };
+
+    0
 }
 
 fn get_trace_pipe() -> io::Result<impl AsRef<Path>> {
