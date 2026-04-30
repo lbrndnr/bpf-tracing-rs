@@ -1,13 +1,10 @@
 use bpf_tracing_include::event::{CallsiteKey, Event, Kind};
 use libbpf_rs::{MapCore, MapHandle};
-use nix::sys::statfs::{FsType, statfs};
 use std::{
     cell::RefCell,
     collections::{HashMap, VecDeque},
-    fs::File,
-    io::{self, BufRead, BufReader},
     path::{Component, Path, PathBuf},
-    thread::{self, JoinHandle},
+    thread::{self},
 };
 use tracing::{self, metadata::Metadata, span::EnteredSpan};
 
@@ -74,77 +71,6 @@ fn process(event: &[u8]) -> i32 {
 
     0
 }
-
-fn get_trace_pipe() -> io::Result<impl AsRef<Path>> {
-    fn validate(path: &Path) -> bool {
-        const TRACEFS_MAGIC: FsType = FsType(0x74726163);
-        if let Ok(stat) = statfs(path) {
-            return stat.filesystem_type() == TRACEFS_MAGIC;
-        }
-
-        false
-    }
-    let known_mounts = [
-        Path::new("/sys/kernel/tracing"),
-        Path::new("/sys/kernel/debug/tracing"),
-    ];
-    if let Some(path) = known_mounts.into_iter().find(|p| validate(p)) {
-        let path = path.to_path_buf();
-        return Ok(path.join("trace_pipe"));
-    }
-
-    let file = File::open("/proc/mounts")?;
-    let mut lines = BufReader::new(file).lines();
-    while let Some(Ok(line)) = lines.next() {
-        if line.starts_with("tracefs") {
-            let mount = line.split_whitespace().nth(1).map(Path::new);
-            if let Some(mount) = mount {
-                if validate(mount) {
-                    return Ok(mount.join("trace_pipe"));
-                }
-            }
-        }
-    }
-
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        "trace_pipe not found",
-    ))
-}
-
-// fn trace_events<P: AsRef<Path>>(
-//     path: P,
-//     callback: impl Fn(Event) + Send + Sync + 'static,
-// ) -> io::Result<JoinHandle<()>> {
-//     // let start_time = Duration::from(nix::time::clock_gettime(
-//     //     nix::time::ClockId::CLOCK_MONOTONIC,
-//     // )?);
-
-//     observe(path, move |val| {
-//         if let Ok(event) = val.parse::<Event>() {
-//             // if event.time_since_boot > start_time {
-//             callback(event);
-//             // }
-//         }
-//     })
-// }
-
-// fn observe<P: AsRef<Path>>(
-//     path: P,
-//     callback: impl Fn(String) + Send + Sync + 'static,
-// ) -> io::Result<JoinHandle<()>> {
-//     let path = path.as_ref().to_path_buf();
-//     let file = File::open(&path)?;
-
-//     let handle = thread::spawn(move || {
-//         let mut lines = BufReader::new(file).lines();
-//         while let Some(Ok(line)) = lines.next() {
-//             callback(line);
-//         }
-//     });
-
-//     Ok(handle)
-// }
 
 fn strip_matching_prefix_components(full: &Path, base: &Path) -> PathBuf {
     let mut full_it = full.components().peekable();
@@ -273,82 +199,6 @@ mod tests {
     use std::{io::Write, sync::mpsc, thread::sleep, time::Duration};
 
     const TEST_INTERVAL: Duration = Duration::from_millis(500);
-
-    #[test]
-    fn observe_nonexistent_file() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let path = temp_dir.path().join("test.log");
-
-        fn callback(_: String) {}
-
-        assert!(observe(path, callback).is_err());
-    }
-
-    #[test]
-    fn observes_file_changes() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let path = temp_dir.path().join("test.log");
-        let mut file = File::create(&path).unwrap();
-        let (tx, rx) = mpsc::channel();
-
-        let callback = move |val: String| {
-            tx.send(val).ok();
-        };
-
-        observe(path, callback).expect("observe");
-
-        file.write_all(b"hello\n").unwrap();
-        file.write_all(b"world\n").unwrap();
-
-        sleep(TEST_INTERVAL);
-
-        assert_eq!(rx.recv().unwrap(), "hello".to_string());
-        assert_eq!(rx.recv().unwrap(), "world".to_string());
-    }
-
-    // #[test]
-    // fn drains_tracefs() {
-    //     let temp_dir = tempfile::tempdir().unwrap();
-    //     let path = temp_dir.path().join("test.log");
-    //     let mut file = File::create(&path).unwrap();
-
-    //     let boot_time = Duration::from(
-    //         nix::time::clock_gettime(nix::time::ClockId::CLOCK_BOOTTIME).expect("boot_time"),
-    //     );
-
-    //     let msg0 = format!(
-    //         "example-83756   [004] ...11 {:.6}: bpf_trace_printk: [INFO] msg0\n",
-    //         boot_time.as_secs_f64() - 2.0
-    //     );
-    //     let msg1 = format!(
-    //         "example-83756   [004] ...11 {:.6}: bpf_trace_printk: [INFO] msg1\n",
-    //         boot_time.as_secs_f64() - 1.0
-    //     );
-
-    //     file.write_all(msg0.as_bytes()).unwrap();
-    //     file.write_all(msg1.as_bytes()).unwrap();
-
-    //     let (tx, rx) = mpsc::channel();
-
-    //     let callback = move |e: Event| {
-    //         tx.send(e).ok();
-    //     };
-
-    //     trace_events(&path, callback).expect("trace_events");
-
-    //     let boot_time = Duration::from(
-    //         nix::time::clock_gettime(nix::time::ClockId::CLOCK_BOOTTIME).expect("boot_time"),
-    //     );
-    //     let msg2 = format!(
-    //         "example-83756   [004] ..s31 {:.6}: bpf_trace_printk: [INFO] msg2\n",
-    //         boot_time.as_secs_f64() + 0.000238
-    //     );
-    //     file.write_all(msg2.as_bytes()).unwrap();
-
-    //     sleep(TEST_INTERVAL);
-
-    //     assert_eq!(rx.recv().unwrap().content, "msg2".to_string());
-    // }
 
     #[test]
     fn leaks_one_callsite_per_level_and_kind() {

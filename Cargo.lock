@@ -94,7 +94,6 @@ version = "0.0.4"
 dependencies = [
  "bpf-tracing-include",
  "libbpf-rs",
- "nix",
  "tempfile",
  "tracing",
 ]
