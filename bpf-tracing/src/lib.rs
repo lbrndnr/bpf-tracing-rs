@@ -40,14 +40,7 @@ pub fn try_init(obj: &libbpf_rs::Object) -> libbpf_rs::Result<()> {
     let mut events: Option<MapHandle> = None;
 
     for map in obj.maps() {
-        let name = map.name().to_str().ok_or_else(|| {
-            libbpf_rs::Error::from(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "map has invalid name",
-            ))
-        })?;
-
-        if name == "bpf_tracing_events" {
+        if map.name().eq("bpf_tracing_events") {
             let map_id = map.info()?.info.id;
             events = Some(MapHandle::from_map_id(map_id)?);
         }
@@ -55,8 +48,8 @@ pub fn try_init(obj: &libbpf_rs::Object) -> libbpf_rs::Result<()> {
 
     let Some(events) = events else {
         return Err(libbpf_rs::Error::from(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "map has invalid name",
+            std::io::ErrorKind::NotFound,
+            "event ring buffer not found",
         )));
     };
 

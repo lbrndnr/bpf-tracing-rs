@@ -49,12 +49,12 @@ pub fn clang_args_from_env(
 pub fn clang_args(level: LevelFilter, source_loc: bool) -> Vec<OsString> {
     let mut args = vec![OsString::from("-I"), OsString::from(include_path_root())];
     let log_level = match level {
+        LevelFilter::OFF => 0,
         LevelFilter::ERROR => 1,
         LevelFilter::WARN => 2,
         LevelFilter::INFO => 3,
         LevelFilter::DEBUG => 4,
         LevelFilter::TRACE => 5,
-        LevelFilter::OFF => 0,
     };
     if log_level == 0 {
         return args;

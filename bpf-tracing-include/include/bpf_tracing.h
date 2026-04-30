@@ -1,116 +1,125 @@
 #ifndef __BPF_TRACING_RS_H__
 #define __BPF_TRACING_RS_H__
 
-#define BPF_LOG_LEVEL_NONE 0
-#define BPF_LOG_LEVEL_ERROR 1
-#define BPF_LOG_LEVEL_WARN 2
-#define BPF_LOG_LEVEL_INFO 3
-#define BPF_LOG_LEVEL_DEBUG 4
-#define BPF_LOG_LEVEL_TRACE 5
+#include "vmlinux.h"
+#include <bpf/bpf_helpers.h>
 
-#ifdef BPF_LOG_LEVEL
+enum log_level {
+    BPF_LOG_LEVEL_OFF=0,
+    BPF_LOG_LEVEL_ERROR,
+    BPF_LOG_LEVEL_WARN,
+    BPF_LOG_LEVEL_INFO,
+    BPF_LOG_LEVEL_DEBUG,
+    BPF_LOG_LEVEL_TRACE,
+};
 
-    #ifdef BPF_LOG_FILE_INFO
-        #define bpf_print_rich(level, fmt, ...) bpf_printk("[%s|%s:%d] " fmt, level, __FILE__, __LINE__, ##__VA_ARGS__)
-    #else
-        #define bpf_print_rich(level, fmt, ...) bpf_printk("[%s] " fmt, level, ##__VA_ARGS__)
-    #endif
+#ifndef BPF_LOG_LEVEL
+#define BPF_LOG_LEVEL BPF_LOG_LEVEL_OFF
+#endif
 
-    #if BPF_LOG_LEVEL == BPF_LOG_LEVEL_ERROR
-        #define bpf_trace(...) (0)
-        #define bpf_debug(...) (0)
-        #define bpf_info(...) (0)
-        #define bpf_warn(...) (0)
-        #define bpf_error(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
+enum tracing_event_type {
+    TRACING_EVENT_TYPE_MSG = 0,
+    TRACING_EVENT_TYPE_SPAN_START,
+    TRACING_EVENT_TYPE_SPAN_END,
+};
 
-        #define bpf_start_trace_span(...) (0)
-        #define bpf_start_debug_span(...) (0)
-        #define bpf_start_info_span(...) (0)
-        #define bpf_start_warn_span(...) (0)
-        #define bpf_start_error_span(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
-        #define bpf_end_span(fmt, ...) bpf_print_rich("<", fmt, ##__VA_ARGS__)
-    #elif BPF_LOG_LEVEL == BPF_LOG_LEVEL_WARN
-        #define bpf_trace(...) (0)
-        #define bpf_debug(...) (0)
-        #define bpf_info(...) (0)
-        #define bpf_warn(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_error(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
+#define BPF_TRACING_STR_LEN 100
 
-        #define bpf_start_trace_span(...) (0)
-        #define bpf_start_debug_span(...) (0)
-        #define bpf_start_info_span(...) (0)
-        #define bpf_start_warn_span(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_start_error_span(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
-        #define bpf_end_span(fmt, ...) bpf_print_rich("<", fmt, ##__VA_ARGS__)
-    #elif BPF_LOG_LEVEL == BPF_LOG_LEVEL_INFO
-        #define bpf_trace(...) (0)
-        #define bpf_debug(...) (0)
-        #define bpf_info(fmt, ...) bpf_print_rich("INFO", fmt, ##__VA_ARGS__)
-        #define bpf_warn(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_error(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1000);
+} bpf_tracing_events SEC(".maps");
 
-        #define bpf_start_trace_span(...) (0)
-        #define bpf_start_debug_span(...) (0)
-        #define bpf_start_info_span(fmt, ...) bpf_print_rich("INFO", fmt, ##__VA_ARGS__)
-        #define bpf_start_warn_span(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_start_error_span(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
-        #define bpf_end_span(fmt, ...) bpf_print_rich("<", fmt, ##__VA_ARGS__)
-    #elif BPF_LOG_LEVEL == BPF_LOG_LEVEL_DEBUG
-        #define bpf_trace(...) (0)
-        #define bpf_debug(fmt, ...) bpf_print_rich("DEBUG", fmt, ##__VA_ARGS__)
-        #define bpf_info(fmt, ...) bpf_print_rich("INFO", fmt, ##__VA_ARGS__)
-        #define bpf_warn(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_error(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
+#ifdef BPF_LOG_FILE_INFO
+struct bpf_tracing_event {
+    __u8 level;
+    __u8 kind;
+    __u16 _pad;
+    char msg[BPF_TRACING_STR_LEN];
+    char file[BPF_TRACING_STR_LEN];
+    __u32 line;
+};
 
-        #define bpf_start_trace_span(...) (0)
-        #define bpf_start_debug_span(fmt, ...) bpf_print_rich("DEBUG", fmt, ##__VA_ARGS__)
-        #define bpf_start_info_span(fmt, ...) bpf_print_rich("INFO", fmt, ##__VA_ARGS__)
-        #define bpf_start_warn_span(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_start_error_span(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
-        #define bpf_end_span(fmt, ...) bpf_print_rich("<", fmt, ##__VA_ARGS__)
-    #elif BPF_LOG_LEVEL == BPF_LOG_LEVEL_TRACE
-        #define bpf_trace(fmt, ...) bpf_print_rich("TRACE", fmt, ##__VA_ARGS__)
-        #define bpf_debug(fmt, ...) bpf_print_rich("DEBUG", fmt, ##__VA_ARGS__)
-        #define bpf_info(fmt, ...) bpf_print_rich("INFO", fmt, ##__VA_ARGS__)
-        #define bpf_warn(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_error(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
-
-        #define bpf_start_trace_span(fmt, ...) bpf_print_rich("TRACE", fmt, ##__VA_ARGS__)
-        #define bpf_start_debug_span(fmt, ...) bpf_print_rich("DEBUG", fmt, ##__VA_ARGS__)
-        #define bpf_start_info_span(fmt, ...) bpf_print_rich("INFO", fmt, ##__VA_ARGS__)
-        #define bpf_start_warn_span(fmt, ...) bpf_print_rich("WARN", fmt, ##__VA_ARGS__)
-        #define bpf_start_error_span(fmt, ...) bpf_print_rich("ERROR", fmt, ##__VA_ARGS__)
-        #define bpf_end_span(fmt, ...) bpf_print_rich("<", fmt, ##__VA_ARGS__)
-    #else
-        #define bpf_trace(...) (0)
-        #define bpf_debug(...) (0)
-        #define bpf_info(...) (0)
-        #define bpf_warn(...) (0)
-        #define bpf_error(...) (0)
-
-        #define bpf_start_trace_span(...) (0)
-        #define bpf_start_debug_span(...) (0)
-        #define bpf_start_info_span(...) (0)
-        #define bpf_start_warn_span(...) (0)
-        #define bpf_start_error_span(...) (0)
-        #define bpf_end_span(...) (0)
-    #endif
-
+#define BPF_TRACING_EMIT_EVENT(lvl, ty, fmt, ...)                     \
+    do {                                                              \
+        struct bpf_tracing_event *event;                              \
+        event = bpf_ringbuf_reserve(&bpf_tracing_events, sizeof(*event), 0);      \
+        if (!event) {                                                 \
+            break;                                                    \
+        }                                                             \
+        event->level = (__u8)(lvl);                                   \
+        event->kind = (__u8)(ty);                                     \
+        BPF_SNPRINTF(event->msg, BPF_TRACING_STR_LEN, fmt, ##__VA_ARGS__); \
+        BPF_SNPRINTF(event->file, BPF_TRACING_STR_LEN, "%s", __FILE__);  \
+        event->line = (__u32)__LINE__;                                \
+        bpf_ringbuf_submit(event, 0);                                 \
+    } while (0)
 #else
+struct bpf_tracing_event {
+    __u8 level;
+    __u8 kind;
+    __u16 _pad;
+    char msg[BPF_TRACING_STR_LEN];
+};
 
-#define bpf_trace(...) (0)
-#define bpf_debug(...) (0)
-#define bpf_info(...) (0)
-#define bpf_warn(...) (0)
-#define bpf_error(...) (0)
+#define BPF_TRACING_EMIT_EVENT(lvl, ty, fmt, ...)                     \
+    do {                                                              \
+        struct bpf_tracing_event *event;                              \
+        event = bpf_ringbuf_reserve(&bpf_tracing_events, sizeof(*event), 0);      \
+        if (!event) {                                                 \
+            break;                                                    \
+        }                                                             \
+        event->level = (__u8)(lvl);                                   \
+        event->kind = (__u8)(ty);                                     \
+        BPF_SNPRINTF(event->msg, BPF_TRACING_STR_LEN, fmt, ##__VA_ARGS__); \
+        bpf_ringbuf_submit(event, 0);                                 \
+    } while (0)
+#endif
 
-#define bpf_start_trace_span(...) (0)
-#define bpf_start_debug_span(...) (0)
-#define bpf_start_info_span(...) (0)
-#define bpf_start_warn_span(...) (0)
-#define bpf_start_error_span(...) (0)
-#define bpf_end_span(...) (0)
+#if BPF_LOG_LEVEL == BPF_LOG_LEVEL_OFF
+    #define bpf_end_span(fmt, ...) (0)
+#else
+    #define bpf_end_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_OFF, TRACING_EVENT_TYPE_SPAN_END, "")
+#endif
 
+#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_ERROR
+    #define bpf_error(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_ERROR, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_error_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_ERROR, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#else
+    #define bpf_error(fmt, ...) (0)
+    #define bpf_start_error_span(fmt, ...) (0)
+#endif
+
+#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_WARN
+    #define bpf_warn(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_WARN, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_warn_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_WARN, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#else
+    #define bpf_warn(fmt, ...) (0)
+    #define bpf_start_warn_span(fmt, ...) (0)
+#endif
+
+#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_INFO
+    #define bpf_info(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_INFO, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_info_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_INFO, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#else
+    #define bpf_info(fmt, ...) (0)
+    #define bpf_start_info_span(fmt, ...) (0)
+#endif
+
+#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_DEBUG
+    #define bpf_debug(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_DEBUG, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_debug_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_DEBUG, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#else
+    #define bpf_debug(fmt, ...) (0)
+    #define bpf_start_debug_span(fmt, ...) (0)
+#endif
+
+#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_TRACE
+    #define bpf_trace(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_TRACE, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_trace_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_TRACE, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#else
+    #define bpf_trace(fmt, ...) (0)
+    #define bpf_start_trace_span(fmt, ...) (0)
 #endif
 
 #endif // __BPF_TRACING_RS_H__
