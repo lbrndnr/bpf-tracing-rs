@@ -137,19 +137,6 @@ impl FromStr for Event {
     }
 }
 
-pub(crate) type CallsiteKey = (Option<String>, Option<u32>, bool, tracing::metadata::Level);
-
-impl TryFrom<Event> for CallsiteKey {
-    type Error = ();
-    fn try_from(event: Event) -> Result<Self, Self::Error> {
-        match event.kind {
-            Kind::StartSpan(level) => Ok((event.file.clone(), event.line, true, level)),
-            Kind::EndSpan => Err(()),
-            Kind::Message(level) => Ok((event.file.clone(), event.line, false, level)),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

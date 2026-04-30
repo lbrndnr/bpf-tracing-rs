@@ -1,4 +1,4 @@
-use crate::event::{CallsiteKey, Event, Kind};
+use bpf_tracing_include::event::{CallsiteKey, Event, Kind};
 use libbpf_rs::{MapCore, MapHandle};
 use nix::sys::statfs::{FsType, statfs};
 use std::{
@@ -10,8 +10,6 @@ use std::{
     thread::{self, JoinHandle},
 };
 use tracing::{self, metadata::Metadata, span::EnteredSpan};
-
-mod event;
 
 const TARGET: &str = "bpf";
 
@@ -56,27 +54,23 @@ pub fn try_init(obj: &libbpf_rs::Object) -> libbpf_rs::Result<()> {
     builder.add(&events, |ev| process(ev)).unwrap();
     let ringbuf = builder.build().unwrap();
 
+    thread::spawn(move || {
+        loop {
+            if let Err(_) = ringbuf.poll(std::time::Duration::from_millis(1)) {
+                continue;
+            }
+        }
+    });
+
     Ok(())
-
-    // tokio::spawn(async move {
-    //     trace!("Polling...");
-    //     loop {
-    //         if let Err(e) = ringbuf.poll(Duration::from_millis(100)) {
-    //             error!("Failed to poll ring buffer: {}", e);
-    //         }
-
-    //         tokio::time::sleep(Duration::from_millis(100)).await;
-    //     }
-    // });
-
-    // let pipe = get_trace_pipe()?;
-    // trace_events(&pipe, emit)
 }
 
-fn process(ev: &[u8]) -> i32 {
-    // let Ok(ev) = plain::from_bytes::<types::event_io>(ev) else {
-    //     return -1;
-    // };
+fn process(event: &[u8]) -> i32 {
+    let Ok(event) = Event::try_from(event) else {
+        return -1;
+    };
+
+    emit(event);
 
     0
 }
@@ -118,39 +112,39 @@ fn get_trace_pipe() -> io::Result<impl AsRef<Path>> {
     ))
 }
 
-fn trace_events<P: AsRef<Path>>(
-    path: P,
-    callback: impl Fn(Event) + Send + Sync + 'static,
-) -> io::Result<JoinHandle<()>> {
-    // let start_time = Duration::from(nix::time::clock_gettime(
-    //     nix::time::ClockId::CLOCK_MONOTONIC,
-    // )?);
+// fn trace_events<P: AsRef<Path>>(
+//     path: P,
+//     callback: impl Fn(Event) + Send + Sync + 'static,
+// ) -> io::Result<JoinHandle<()>> {
+//     // let start_time = Duration::from(nix::time::clock_gettime(
+//     //     nix::time::ClockId::CLOCK_MONOTONIC,
+//     // )?);
 
-    observe(path, move |val| {
-        if let Ok(event) = val.parse::<Event>() {
-            // if event.time_since_boot > start_time {
-            callback(event);
-            // }
-        }
-    })
-}
+//     observe(path, move |val| {
+//         if let Ok(event) = val.parse::<Event>() {
+//             // if event.time_since_boot > start_time {
+//             callback(event);
+//             // }
+//         }
+//     })
+// }
 
-fn observe<P: AsRef<Path>>(
-    path: P,
-    callback: impl Fn(String) + Send + Sync + 'static,
-) -> io::Result<JoinHandle<()>> {
-    let path = path.as_ref().to_path_buf();
-    let file = File::open(&path)?;
+// fn observe<P: AsRef<Path>>(
+//     path: P,
+//     callback: impl Fn(String) + Send + Sync + 'static,
+// ) -> io::Result<JoinHandle<()>> {
+//     let path = path.as_ref().to_path_buf();
+//     let file = File::open(&path)?;
 
-    let handle = thread::spawn(move || {
-        let mut lines = BufReader::new(file).lines();
-        while let Some(Ok(line)) = lines.next() {
-            callback(line);
-        }
-    });
+//     let handle = thread::spawn(move || {
+//         let mut lines = BufReader::new(file).lines();
+//         while let Some(Ok(line)) = lines.next() {
+//             callback(line);
+//         }
+//     });
 
-    Ok(handle)
-}
+//     Ok(handle)
+// }
 
 fn strip_matching_prefix_components(full: &Path, base: &Path) -> PathBuf {
     let mut full_it = full.components().peekable();
