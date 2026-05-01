@@ -2,7 +2,8 @@ use std::{error::Error, fmt};
 
 use tracing::Level;
 
-const BPF_TRACING_STR_LEN: usize = 100;
+// TODO: this currently has two definitions. Make sure there's only one.
+const BPF_TRACING_STR_LEN: usize = 128;
 const EVENT_BASE_SIZE: usize = 4 + BPF_TRACING_STR_LEN;
 const EVENT_WITH_FILE_SIZE: usize = EVENT_BASE_SIZE + BPF_TRACING_STR_LEN + 4;
 
