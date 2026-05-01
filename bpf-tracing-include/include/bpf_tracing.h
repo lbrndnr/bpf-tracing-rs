@@ -14,7 +14,7 @@ enum log_level {
 };
 
 #ifndef BPF_LOG_LEVEL
-#define BPF_LOG_LEVEL BPF_LOG_LEVEL_OFF
+    #define BPF_LOG_LEVEL BPF_LOG_LEVEL_OFF
 #endif
 
 enum tracing_event_type {
@@ -23,14 +23,20 @@ enum tracing_event_type {
     TRACING_EVENT_TYPE_SPAN_END,
 };
 
-#define BPF_TRACING_STR_LEN 100
+#ifndef BPF_TRACING_RINGBUF_SIZE
+    #define BPF_TRACING_RINGBUF_SIZE 1000
+#endif
+
+#ifndef BPF_TRACING_STR_LEN
+    #define BPF_TRACING_STR_LEN 100
+#endif
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1000);
+    __uint(max_entries, BPF_TRACING_RINGBUF_SIZE);
 } bpf_tracing_events SEC(".maps");
 
-#ifdef BPF_LOG_FILE_INFO
+#ifdef BPF_TRACING_FILE_INFO
 struct bpf_tracing_event {
     __u8 level;
     __u8 kind;

@@ -13,4 +13,4 @@ keywords.workspace = true
 tracing = "0.1.44"
 
 [features]
-source_loc = []
+source-loc = []
