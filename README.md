@@ -11,7 +11,7 @@
 [actions-badge]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/CI.yml/badge.svg
 [actions-url]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/CI.yml
 
-This is a tracing facility for eBPF that produces rich, event-based diagnostic information. Similar to [bpftool](https://github.com/libbpf/bpftool), it reads the kernel's tracefs file system, parses the logs and emits them conveniently using the [tracing](https://crates.io/crates/tracing) crate. 
+This is a tracing facility for eBPF that produces rich, event-based diagnostic information. It efficiently copies tracing events into user space using a ring buffer, and emits them conveniently using the [tracing](https://crates.io/crates/tracing) facility. 
 
 ## Usage
 
@@ -57,7 +57,7 @@ int monitor_sockets(struct bpf_sock_ops *ops) {
 }
 ```
 
-Finally, in your Rust program, you'll have to enable `bpf-tracing`. It then starts reading the tracefs file system and continuously emits the tracing events.
+Finally, in your Rust program, you'll have to enable `bpf-tracing`. It then starts reading the ring buffer and continuously emits the tracing events.
 ```rust
 bpf_tracing::try_init()?;
 ```

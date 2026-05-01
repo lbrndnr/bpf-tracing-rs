@@ -56,7 +56,7 @@ thread_local! {
     };
 }
 
-/// Initializes a tracefs reader that continuously observes and
+/// Initializes a ring buffer reader that continuously observes and
 /// emits tracing events.
 ///
 /// # Errors
