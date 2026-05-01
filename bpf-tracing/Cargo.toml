@@ -10,7 +10,8 @@ readme.workspace = true
 keywords.workspace = true
 
 [dependencies]
-nix = { version = "0.31.2", features = ["fs", "time"] }
+bpf-tracing-include = { path = "../bpf-tracing-include" }
+libbpf-rs = "0.26.2"
 tracing = "0.1.44"
 
 [dev-dependencies]

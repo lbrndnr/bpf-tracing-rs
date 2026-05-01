@@ -2,7 +2,7 @@
 use anyhow::Result;
 use libbpf_rs::{
     Link, MapCore, MapFlags, MapHandle, MapType, PrintLevel, set_print,
-    skel::{OpenSkel, SkelBuilder},
+    skel::{OpenSkel, Skel, SkelBuilder},
 };
 use std::{
     io::{Read, Write},
@@ -26,13 +26,13 @@ fn main() -> Result<()> {
         .with_line_number(true)
         .init();
 
-    bpf_tracing::try_init()?;
-
     let mut open_obj = MaybeUninit::uninit();
     let skel_builder = MonitorSkelBuilder::default();
     let open_skel = skel_builder.open(&mut open_obj)?;
 
     let skel = open_skel.load()?;
+
+    bpf_tracing::try_init(skel.object()).expect("bpf-tracing");
     let sock_map_fd = skel.maps.sock_map.as_fd().as_raw_fd();
 
     let cgroup_fd = std::fs::OpenOptions::new()
