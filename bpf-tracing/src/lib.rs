@@ -1,3 +1,34 @@
+//! Rich and event-based diagnostic information for eBPF.
+//!
+//! It exports a set of macros that can be used to emit
+//! diagnostic events from eBPF programs. The events are
+//! efficiently copied to user space via a ring buffer
+//! and integrated into the [`tracing`] infrastructure.
+//!
+//! # Example
+//!
+//! ```
+//! tracing_subscriber::fmt()
+//!     .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+//!     .with_file(true)
+//!     .with_line_number(true)
+//!     .init();
+//!
+//! let mut open_obj = MaybeUninit::uninit();
+//! let skel_builder = MonitorSkelBuilder::default();
+//! let open_skel = skel_builder.open(&mut open_obj)?;
+//! let skel = open_skel.load()?;
+//!
+//! bpf_tracing::try_init(skel.object())?;
+//! ```
+//!
+//! And in your eBPF program:
+//!
+//! ```c
+//! bpf_info("Established socket [%pI4:%u->%pI4:%u]", &skey.local.ip4, skey.local.port, &skey.remote.ip4, skey.remote.port);
+//! ```
+//!
+//! [`tracing`]: https://github.com/tokio-rs/tracing
 use bpf_tracing_include::event::{CallsiteKey, Event, Kind};
 use libbpf_rs::{MapCore, MapHandle};
 use std::{

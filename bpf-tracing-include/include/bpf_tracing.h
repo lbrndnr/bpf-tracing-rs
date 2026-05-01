@@ -28,7 +28,7 @@ enum tracing_event_type {
 #endif
 
 #ifndef BPF_TRACING_STR_LEN
-    #define BPF_TRACING_STR_LEN 100
+    #define BPF_TRACING_STR_LEN 128
 #endif
 
 struct {

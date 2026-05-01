@@ -1,3 +1,25 @@
+//! Rich and event-based diagnostic information for eBPF.
+//!
+//! This is a helper crate to facilitate the build script
+//! implementation. Most of the time `clang_args_from_default_env`
+//! should be sufficient to compile `bpf-tracing`. You can
+//! customize the ring buffer used to copy the tracing events to
+//! user space with the following clang arguments:
+//! `BPF_TRACING_RINGBUF_SIZE`: determines the size of the ring buffer in bytes, default is 1000.
+//! `BPF_TRACING_STR_LEN`: determines the maximum string length for tracing events, default is 128.
+//! # Example
+//!
+//! ```
+//! let mut args = vec![OsString::from("-I"), OsString::from("../include")];
+//! args.extend(bpf_tracing_include::clang_args_from_default_env().unwrap());
+//!
+//! SkeletonBuilder::new()
+//!     .source(&src)
+//!     .clang_args(args)
+//!     .build_and_generate(&out)
+//!     .unwrap();
+//! ```
+//!
 use std::{env, ffi::OsString, path::Path};
 use tracing::level_filters::{LevelFilter, ParseLevelFilterError};
 
@@ -15,6 +37,7 @@ fn level_filter_from_env(
 }
 
 /// Returns the clang arguments used to compile an eBPF program with bpf-tracing.
+///
 /// The vector contains the path to the include directory along with other clang
 /// definitions. The log level is determined by the `BPF_LOG` or `RUST_LOG`
 /// environment variables.
