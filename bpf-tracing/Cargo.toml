@@ -10,7 +10,7 @@ readme.workspace = true
 keywords.workspace = true
 
 [dependencies]
-bpf-tracing-include = { path = "../bpf-tracing-include" }
+bpf-tracing-include = { path = "../bpf-tracing-include", version = "0.0.5" }
 libbpf-rs = "0.26.2"
 tracing = "0.1.44"
 
