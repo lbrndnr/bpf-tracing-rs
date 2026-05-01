@@ -7,7 +7,8 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```no_run
+//!
 //! tracing_subscriber::fmt()
 //!     .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
 //!     .with_file(true)
@@ -15,16 +16,16 @@
 //!     .init();
 //!
 //! let mut open_obj = MaybeUninit::uninit();
-//! let skel_builder = MonitorSkelBuilder::default();
+//! let skel_builder = SkelBuilder::default();
 //! let open_skel = skel_builder.open(&mut open_obj)?;
 //! let skel = open_skel.load()?;
 //!
-//! bpf_tracing::try_init(skel.object())?;
+//! bpf_tracing::try_init(skel.object());
 //! ```
 //!
 //! And in your eBPF program:
 //!
-//! ```c
+//! ```custom,{.language-c}
 //! bpf_info("Established socket [%pI4:%u->%pI4:%u]", &skey.local.ip4, skey.local.port, &skey.remote.ip4, skey.remote.port);
 //! ```
 //!

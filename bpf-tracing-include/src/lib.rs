@@ -85,7 +85,7 @@ pub fn clang_args(level: LevelFilter) -> Vec<OsString> {
     if cfg!(feature = "source-loc") {
         args.extend_from_slice(&[
             OsString::from("-D"),
-            OsString::from("BPF_TRACING_FILE_INFO=1"),
+            OsString::from("BPF_TRACING_SOURCE_LOC=1"),
         ]);
     }
 

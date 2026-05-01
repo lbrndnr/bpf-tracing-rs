@@ -36,7 +36,7 @@ struct {
     __uint(max_entries, BPF_TRACING_RINGBUF_SIZE);
 } bpf_tracing_events SEC(".maps");
 
-#ifdef BPF_TRACING_FILE_INFO
+#ifdef BPF_TRACING_SOURCE_LOC
 struct bpf_tracing_event {
     __u8 level;
     __u8 kind;
