@@ -8,6 +8,66 @@
 //! # Example
 //!
 //! ```no_run
+//! # use std::mem::MaybeUninit;
+//! # mod tracing_subscriber {
+//! #     pub struct Fmt;
+//! #     pub struct EnvFilter;
+//! #
+//! #     pub fn fmt() -> Fmt {
+//! #         Fmt
+//! #     }
+//! #
+//! #     impl EnvFilter {
+//! #         pub fn from_default_env() -> Self {
+//! #             EnvFilter
+//! #         }
+//! #     }
+//! #
+//! #     impl Fmt {
+//! #         pub fn with_env_filter(self, _filter: EnvFilter) -> Self {
+//! #             self
+//! #         }
+//! #
+//! #         pub fn with_file(self, _with_file: bool) -> Self {
+//! #             self
+//! #         }
+//! #
+//! #         pub fn with_line_number(self, _with_line_number: bool) -> Self {
+//! #             self
+//! #         }
+//! #
+//! #         pub fn init(self) {}
+//! #     }
+//! # }
+//! # struct SkelBuilder;
+//! # struct OpenSkel;
+//! # struct Skel;
+//! #
+//! # impl Default for SkelBuilder {
+//! #     fn default() -> Self {
+//! #         Self
+//! #     }
+//! # }
+//! #
+//! # impl SkelBuilder {
+//! #     fn open(&self, _open_obj: &mut MaybeUninit<()>) -> libbpf_rs::Result<OpenSkel> {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! #
+//! # impl OpenSkel {
+//! #     fn load(self) -> libbpf_rs::Result<Skel> {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! #
+//! # impl Skel {
+//! #     fn object(&self) -> &libbpf_rs::Object {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! #
+//! # fn main() -> libbpf_rs::Result<()> {
 //!
 //! tracing_subscriber::fmt()
 //!     .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -21,6 +81,8 @@
 //! let skel = open_skel.load()?;
 //!
 //! bpf_tracing::try_init(skel.object());
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! And in your eBPF program:

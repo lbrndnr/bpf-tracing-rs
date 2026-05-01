@@ -9,7 +9,30 @@
 //! `BPF_TRACING_STR_LEN`: determines the maximum string length for tracing events, default is 128.
 //! # Example
 //!
-//! ```
+//! ```no_run
+//! # use std::ffi::OsString;
+//! # struct SkeletonBuilder;
+//! #
+//! # impl SkeletonBuilder {
+//! #     fn new() -> Self {
+//! #         Self
+//! #     }
+//! #
+//! #     fn source(self, _src: &str) -> Self {
+//! #         self
+//! #     }
+//! #
+//! #     fn clang_args(self, _args: Vec<OsString>) -> Self {
+//! #         self
+//! #     }
+//! #
+//! #     fn build_and_generate(self, _out: &str) -> Result<(), ()> {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! #
+//! # let out = "out";
+//! # let src = "src";
 //! let mut args = vec![OsString::from("-I"), OsString::from("../include")];
 //! args.extend(bpf_tracing_include::clang_args_from_default_env().unwrap());
 //!
