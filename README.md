@@ -15,6 +15,8 @@ This is a tracing facility for eBPF that produces rich, event-based diagnostic i
 
 ## Usage
 
+You can run the example using `RUST_LOG=trace cargo r --bin example` 
+
 To use `bpf-tracing`, add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
