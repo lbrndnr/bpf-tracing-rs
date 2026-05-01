@@ -5,22 +5,22 @@
 #include <bpf/bpf_helpers.h>
 
 enum log_level {
-    BPF_LOG_LEVEL_OFF=0,
-    BPF_LOG_LEVEL_ERROR,
-    BPF_LOG_LEVEL_WARN,
-    BPF_LOG_LEVEL_INFO,
-    BPF_LOG_LEVEL_DEBUG,
-    BPF_LOG_LEVEL_TRACE,
+    BPF_TRACING_LEVEL_OFF=0,
+    BPF_TRACING_LEVEL_ERROR,
+    BPF_TRACING_LEVEL_WARN,
+    BPF_TRACING_LEVEL_INFO,
+    BPF_TRACING_LEVEL_DEBUG,
+    BPF_TRACING_LEVEL_TRACE,
 };
 
-#ifndef BPF_LOG_LEVEL
-    #define BPF_LOG_LEVEL BPF_LOG_LEVEL_OFF
+#ifndef BPF_TRACING_LEVEL
+    #define BPF_TRACING_LEVEL BPF_TRACING_LEVEL_OFF
 #endif
 
 enum tracing_event_type {
-    TRACING_EVENT_TYPE_MSG = 0,
-    TRACING_EVENT_TYPE_SPAN_START,
-    TRACING_EVENT_TYPE_SPAN_END,
+    BPF_TRACING_EVENT_TYPE_MSG = 0,
+    BPF_TRACING_EVENT_TYPE_SPAN_START,
+    BPF_TRACING_EVENT_TYPE_SPAN_END,
 };
 
 #ifndef BPF_TRACING_RINGBUF_SIZE
@@ -83,47 +83,47 @@ struct bpf_tracing_event {
     } while (0)
 #endif
 
-#if BPF_LOG_LEVEL == BPF_LOG_LEVEL_OFF
+#if BPF_TRACING_LEVEL == BPF_TRACING_LEVEL_OFF
     #define bpf_end_span(fmt, ...) (0)
 #else
-    #define bpf_end_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_OFF, TRACING_EVENT_TYPE_SPAN_END, "")
+    #define bpf_end_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_OFF, BPF_TRACING_EVENT_TYPE_SPAN_END, "")
 #endif
 
-#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_ERROR
-    #define bpf_error(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_ERROR, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
-    #define bpf_start_error_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_ERROR, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#if BPF_TRACING_LEVEL >= BPF_TRACING_LEVEL_ERROR
+    #define bpf_error(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_ERROR, BPF_TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_error_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_ERROR, BPF_TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
 #else
     #define bpf_error(fmt, ...) (0)
     #define bpf_start_error_span(fmt, ...) (0)
 #endif
 
-#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_WARN
-    #define bpf_warn(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_WARN, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
-    #define bpf_start_warn_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_WARN, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#if BPF_TRACING_LEVEL >= BPF_TRACING_LEVEL_WARN
+    #define bpf_warn(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_WARN, BPF_TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_warn_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_WARN, BPF_TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
 #else
     #define bpf_warn(fmt, ...) (0)
     #define bpf_start_warn_span(fmt, ...) (0)
 #endif
 
-#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_INFO
-    #define bpf_info(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_INFO, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
-    #define bpf_start_info_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_INFO, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#if BPF_TRACING_LEVEL >= BPF_TRACING_LEVEL_INFO
+    #define bpf_info(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_INFO, BPF_TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_info_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_INFO, BPF_TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
 #else
     #define bpf_info(fmt, ...) (0)
     #define bpf_start_info_span(fmt, ...) (0)
 #endif
 
-#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_DEBUG
-    #define bpf_debug(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_DEBUG, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
-    #define bpf_start_debug_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_DEBUG, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#if BPF_TRACING_LEVEL >= BPF_TRACING_LEVEL_DEBUG
+    #define bpf_debug(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_DEBUG, BPF_TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_debug_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_DEBUG, BPF_TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
 #else
     #define bpf_debug(fmt, ...) (0)
     #define bpf_start_debug_span(fmt, ...) (0)
 #endif
 
-#if BPF_LOG_LEVEL >= BPF_LOG_LEVEL_TRACE
-    #define bpf_trace(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_TRACE, TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
-    #define bpf_start_trace_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_LOG_LEVEL_TRACE, TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
+#if BPF_TRACING_LEVEL >= BPF_TRACING_LEVEL_TRACE
+    #define bpf_trace(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_TRACE, BPF_TRACING_EVENT_TYPE_MSG, fmt, ##__VA_ARGS__)
+    #define bpf_start_trace_span(fmt, ...) BPF_TRACING_EMIT_EVENT(BPF_TRACING_LEVEL_TRACE, BPF_TRACING_EVENT_TYPE_SPAN_START, fmt, ##__VA_ARGS__)
 #else
     #define bpf_trace(fmt, ...) (0)
     #define bpf_start_trace_span(fmt, ...) (0)
