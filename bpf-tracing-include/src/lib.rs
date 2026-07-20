@@ -101,8 +101,7 @@ pub fn clang_args_from_default_env() -> Vec<OsString> {
     println!("cargo:rerun-if-env-changed={}", EnvFilter::DEFAULT_ENV);
     println!("cargo:rerun-if-env-changed={}", DEFAULT_ENV);
 
-    let env_var = std::env::var("BPF_LOG").or(std::env::var("RUST_LOG"));
-    let env_var = if env_var.is_ok() {
+    let env_var = if std::env::var(DEFAULT_ENV).is_ok() {
         DEFAULT_ENV
     } else {
         EnvFilter::DEFAULT_ENV
@@ -167,17 +166,30 @@ mod tests {
 
     #[test]
     fn parse_rich_env_var() {
-        let env_var = "BPF_TRACING_TEST_PARSE_RICH_ENV_VAR";
-        unsafe {
-            env::set_var(env_var, "bpf=debug,other_target=trace");
-        }
-
-        let level = level_from_env(env_var);
-
-        unsafe {
-            env::remove_var(env_var);
-        }
+        let env_var = "TEST_VAR";
+        let level = temp_env::with_var(env_var, Some("trace,bpf=debug,other_target=warn"), || {
+            level_from_env(env_var)
+        });
 
         assert_eq!(level, LevelFilter::DEBUG);
+    }
+
+    #[test]
+    fn parse_default_rich_env_var() {
+        let env_var = "RUST_LOG";
+        let clang_args =
+            temp_env::with_var(env_var, Some("trace,bpf=debug,other_target=warn"), || {
+                clang_args_from_default_env()
+            });
+
+        assert!(clang_args.contains(&OsString::from("BPF_TRACING_LEVEL=4")));
+
+        let env_var = "BPF_LOG";
+        let clang_args =
+            temp_env::with_var(env_var, Some("trace,bpf=info,other_target=warn"), || {
+                clang_args_from_default_env()
+            });
+
+        assert!(clang_args.contains(&OsString::from("BPF_TRACING_LEVEL=3")));
     }
 }

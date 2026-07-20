@@ -15,3 +15,6 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [features]
 source-loc = []
+
+[dev-dependencies]
+temp-env = "0.3.6"
