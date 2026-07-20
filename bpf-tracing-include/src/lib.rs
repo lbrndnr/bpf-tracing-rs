@@ -34,7 +34,7 @@
 //! # let out = "out";
 //! # let src = "src";
 //! let mut args = vec![OsString::from("-I"), OsString::from("../include")];
-//! args.extend(bpf_tracing_include::clang_args_from_default_env().unwrap());
+//! args.extend(bpf_tracing_include::clang_args_from_default_env());
 //!
 //! SkeletonBuilder::new()
 //!     .source(&src)
@@ -51,7 +51,7 @@ pub const DEFAULT_ENV: &'static str = "BPF_LOG";
 
 pub mod event;
 
-// Returns true if `target` is enabled at `level` by this EnvFilter.
+/// Returns true if `target` is enabled at `level` by this EnvFilter.
 fn target_enabled_at(filter: &EnvFilter, target: &'static str, level: Level) -> bool {
     let cs = tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::EVENT, fields: &[]);
     let meta = Metadata::new(
@@ -69,6 +69,7 @@ fn target_enabled_at(filter: &EnvFilter, target: &'static str, level: Level) -> 
     dispatch.enabled(&meta)
 }
 
+/// Returns the level filter for the given environment variable name.
 fn level_from_env(env_var: &str) -> LevelFilter {
     let filter = EnvFilter::builder()
         .with_env_var(env_var)
@@ -158,4 +159,25 @@ pub fn include_path_root() -> OsString {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("include");
     println!("cargo:rerun-if-changed={:?}", path);
     OsString::from(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_rich_env_var() {
+        let env_var = "BPF_TRACING_TEST_PARSE_RICH_ENV_VAR";
+        unsafe {
+            env::set_var(env_var, "bpf=debug,other_target=trace");
+        }
+
+        let level = level_from_env(env_var);
+
+        unsafe {
+            env::remove_var(env_var);
+        }
+
+        assert_eq!(level, LevelFilter::DEBUG);
+    }
 }
