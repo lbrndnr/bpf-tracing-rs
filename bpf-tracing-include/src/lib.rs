@@ -44,18 +44,49 @@
 //! ```
 //!
 use std::{env, ffi::OsString, path::Path};
-use tracing::level_filters::{LevelFilter, ParseLevelFilterError};
+use tracing::{Dispatch, Level, Metadata, level_filters::LevelFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, registry::Registry};
+
+pub const DEFAULT_ENV: &'static str = "BPF_LOG";
 
 pub mod event;
 
-fn level_filter_from_env(
-    var: Result<String, std::env::VarError>,
-) -> Result<LevelFilter, ParseLevelFilterError> {
-    // if the env var is missing, i.e. var is var error,
-    // the we can safely return the off filter level
-    match var {
-        Ok(v) => v.parse(),
-        Err(_) => Ok(LevelFilter::OFF),
+// Returns true if `target` is enabled at `level` by this EnvFilter.
+fn target_enabled_at(filter: &EnvFilter, target: &'static str, level: Level) -> bool {
+    let cs = tracing::callsite!(name: "fake", kind: tracing::metadata::Kind::EVENT, fields: &[]);
+    let meta = Metadata::new(
+        "probe",
+        target,
+        level,
+        None,
+        None,
+        None,
+        tracing::field::FieldSet::new(&[], tracing::callsite::Identifier(cs)),
+        tracing::metadata::Kind::EVENT,
+    );
+
+    let dispatch = Dispatch::new(Registry::default().with(filter.clone()));
+    dispatch.enabled(&meta)
+}
+
+fn level_from_env(env_var: &str) -> LevelFilter {
+    let filter = EnvFilter::builder()
+        .with_env_var(env_var)
+        .with_default_directive(LevelFilter::OFF.into())
+        .from_env_lossy();
+
+    if target_enabled_at(&filter, "bpf", Level::TRACE) {
+        LevelFilter::TRACE
+    } else if target_enabled_at(&filter, "bpf", Level::DEBUG) {
+        LevelFilter::DEBUG
+    } else if target_enabled_at(&filter, "bpf", Level::INFO) {
+        LevelFilter::INFO
+    } else if target_enabled_at(&filter, "bpf", Level::WARN) {
+        LevelFilter::WARN
+    } else if target_enabled_at(&filter, "bpf", Level::ERROR) {
+        LevelFilter::ERROR
+    } else {
+        LevelFilter::OFF
     }
 }
 
@@ -65,29 +96,34 @@ fn level_filter_from_env(
 /// definitions. The log level is determined by the `BPF_LOG` or `RUST_LOG`
 /// environment variables.
 #[inline]
-pub fn clang_args_from_default_env() -> Result<Vec<OsString>, ParseLevelFilterError> {
-    println!("cargo:rerun-if-env-changed=RUST_LOG");
-    println!("cargo:rerun-if-env-changed=BPF_LOG");
+pub fn clang_args_from_default_env() -> Vec<OsString> {
+    println!("cargo:rerun-if-env-changed={}", EnvFilter::DEFAULT_ENV);
+    println!("cargo:rerun-if-env-changed={}", DEFAULT_ENV);
 
-    let level = std::env::var("BPF_LOG").or(std::env::var("RUST_LOG"));
-    let level = level_filter_from_env(level)?;
+    let env_var = std::env::var("BPF_LOG").or(std::env::var("RUST_LOG"));
+    let env_var = if env_var.is_ok() {
+        DEFAULT_ENV
+    } else {
+        EnvFilter::DEFAULT_ENV
+    };
 
-    Ok(clang_args(level))
+    let level = level_from_env(env_var);
+
+    clang_args(level)
 }
 
 /// Similar to [`clang_args_from_default_env`], but takes the name of the environment
 /// variable that determines the log level.
 #[inline]
-pub fn clang_args_from_env(env_var: &str) -> Result<Vec<OsString>, ParseLevelFilterError> {
+pub fn clang_args_from_env(env_var: &str) -> Vec<OsString> {
     println!("cargo:rerun-if-env-changed={env_var}");
 
-    let level = std::env::var(env_var);
-    let level = level_filter_from_env(level)?;
+    let level = level_from_env(env_var);
 
-    Ok(clang_args(level))
+    clang_args(level)
 }
 
-/// Similar to [`clang_args_from_default_env`], but takes an explicit log [`LevelFilter`].
+/// Similar to [`clang_args_from_default_env`], but takes an explicit tracing [`LevelFilter`].
 pub fn clang_args(level: LevelFilter) -> Vec<OsString> {
     let mut args = vec![OsString::from("-I"), OsString::from(include_path_root())];
     let log_level = match level {
