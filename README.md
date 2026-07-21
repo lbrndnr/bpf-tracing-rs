@@ -37,7 +37,7 @@ SkeletonBuilder::new()
     .build_and_generate(&out)
     .unwrap();
 ```
-`clang_args_from_env` reads the `BPF_LOG` environment variable, and falls back to `RUST_LOG` if it's not set. Note that `bpf-tracing` disables tracing at compile time, since logging is expensive in eBPF. Note that this example uses [libbpf-rs](https://github.com/libbpf/libbpf-rs), but other libraries work just as well.
+`clang_args_from_env` reads the `RUST_LOG` environment variable to compile out unneeded logging calls in the eBPF code. Note that `bpf-tracing` disables tracing at compile time, since logging is expensive in eBPF. Note that this example uses [libbpf-rs](https://github.com/libbpf/libbpf-rs), but other libraries work just as well.
 
 In your eBPF program, you can now include the [bpf_tracing.h](include/bpf_tracing.h) header and call tracing functions.
 ```c

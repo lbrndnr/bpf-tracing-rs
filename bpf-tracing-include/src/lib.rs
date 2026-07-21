@@ -47,8 +47,6 @@ use std::{env, ffi::OsString, path::Path};
 use tracing::{Dispatch, Level, Metadata, level_filters::LevelFilter};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, registry::Registry};
 
-pub const DEFAULT_ENV: &'static str = "BPF_LOG";
-
 pub mod event;
 
 /// Returns true if `target` is enabled at `level` by this EnvFilter.
@@ -94,20 +92,12 @@ fn level_from_env(env_var: &str) -> LevelFilter {
 /// Returns the clang arguments used to compile an eBPF program with bpf-tracing.
 ///
 /// The vector contains the path to the include directory along with other clang
-/// definitions. The log level is determined by the `BPF_LOG` or `RUST_LOG`
-/// environment variables.
+/// definitions. The log level is determined by the `RUST_LOG`
+/// environment variable.
 #[inline]
 pub fn clang_args_from_default_env() -> Vec<OsString> {
     println!("cargo:rerun-if-env-changed={}", EnvFilter::DEFAULT_ENV);
-    println!("cargo:rerun-if-env-changed={}", DEFAULT_ENV);
-
-    let env_var = if std::env::var(DEFAULT_ENV).is_ok() {
-        DEFAULT_ENV
-    } else {
-        EnvFilter::DEFAULT_ENV
-    };
-
-    let level = level_from_env(env_var);
+    let level = level_from_env(EnvFilter::DEFAULT_ENV);
 
     clang_args(level)
 }
@@ -117,7 +107,6 @@ pub fn clang_args_from_default_env() -> Vec<OsString> {
 #[inline]
 pub fn clang_args_from_env(env_var: &str) -> Vec<OsString> {
     println!("cargo:rerun-if-env-changed={env_var}");
-
     let level = level_from_env(env_var);
 
     clang_args(level)
@@ -183,13 +172,5 @@ mod tests {
             });
 
         assert!(clang_args.contains(&OsString::from("BPF_TRACING_LEVEL=4")));
-
-        let env_var = "BPF_LOG";
-        let clang_args =
-            temp_env::with_var(env_var, Some("trace,bpf=info,other_target=warn"), || {
-                clang_args_from_default_env()
-            });
-
-        assert!(clang_args.contains(&OsString::from("BPF_TRACING_LEVEL=3")));
     }
 }
