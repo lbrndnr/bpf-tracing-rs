@@ -147,7 +147,7 @@ pub fn try_init(obj: &libbpf_rs::Object) -> libbpf_rs::Result<()> {
 
     thread::spawn(move || {
         loop {
-            if let Err(_) = ringbuf.poll(std::time::Duration::from_millis(1)) {
+            if let Err(_) = ringbuf.poll(std::time::Duration::MAX) {
                 continue;
             }
         }
