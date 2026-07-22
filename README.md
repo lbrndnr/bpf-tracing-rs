@@ -8,8 +8,8 @@
 [crates-url]: https://crates.io/crates/bpf-tracing
 [mit-badge]: https://img.shields.io/badge/License-MIT-blue.svg
 [mit-url]: LICENSE
-[actions-badge]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/CI.yml/badge.svg
-[actions-url]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/CI.yml
+[actions-badge]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/ci.yml/badge.svg
+[actions-url]: https://github.com/lbrndnr/bpf-tracing-rs/actions/workflows/ci.yml
 
 This is a tracing facility for eBPF that produces rich, event-based diagnostic information. It efficiently copies tracing events into user space using a ring buffer, and emits them conveniently using the [tracing](https://crates.io/crates/tracing) facility. 
 
