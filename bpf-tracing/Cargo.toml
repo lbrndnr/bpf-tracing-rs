@@ -11,7 +11,7 @@ keywords.workspace = true
 
 [dependencies]
 bpf-tracing-include = { path = "../bpf-tracing-include" }
-libbpf-rs = "0.26.2"
+libbpf-rs = "0.27.0"
 tracing = "0.1.44"
 
 [dev-dependencies]
